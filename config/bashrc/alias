@@ -1,0 +1,16 @@
+alias nn='nvim'
+alias wpp='firefox --new-window --kiosk https://web.whatsapp.com'
+alias src='source ~/.bashrc'
+alias o='xdg-open'
+alias c3='n ~/.config/i3/config'
+alias w11='/usr/lib/virtualbox/VirtualBoxVM --comment "w11" --startvm "{4e647684-9612-4de9-aa52-72ad2c81b677}" &'
+alias w10='/usr/lib/virtualbox/VirtualBoxVM --comment "w10" --startvm "{e53f87f8-9194-4665-aba2-fdd472d29c5c}" &'
+alias d11='/usr/lib/virtualbox/VirtualBoxVM --comment "d11" --startvm "{11a639c0-16b6-4a86-85da-924f3f57977d}" &'
+alias off='sudo poweroff'
+alias rbt='sudo reboot'
+alias n='$HOME/.local/bin/nvim.appimage'
+alias ca='n ~/.config/bashrc/alias'
+alias nmoff='nmcli off' #MAL
+alias nmon='nmcli power on' #mal
+alias info='fastfetch'
+alias cal='python3.13 ~/.config/bashrc/mycalendar.py'

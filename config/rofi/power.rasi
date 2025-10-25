@@ -1,0 +1,66 @@
+configuration {
+  // Configuración básica para el power menu
+  font: "JetBrainsMono Nerd Font Medium 10";
+  modi: "run";  // No es relevante en este modo, ya que solo se mostrará la lista
+}
+
+@theme "/dev/null"
+
+* {
+  bg: #1e1e2e00;
+  bg-alt: #585b7066;
+  bg-selected: #31324466;
+
+  fg: #cdd6f4;
+  fg-alt: #7f849c;
+
+  border: 0;
+  margin: 0;
+  padding: 0;
+  spacing: 0;
+}
+
+window {
+  width: 30%;
+  background-color: @bg;
+}
+
+element {
+  padding: 8 12;
+  background-color: transparent;
+  text-color: @fg-alt;
+}
+
+element selected {
+  text-color: @fg;
+  background-color: @bg-selected;
+}
+
+element-text {
+  background-color: transparent;
+  text-color: inherit;
+  vertical-align: 0.5;
+}
+
+element-icon {
+  size: 24;
+  padding: 0 10 0 0;
+  background-color: transparent;
+}
+
+// Aquí ya no incluimos 'entry' ni 'inputbar' ni 'prompt'
+listview {
+  background-color: @bg;
+  columns: 1;
+  // Ajusta 'lines' según la cantidad de opciones que quieras mostrar (por ejemplo, 5)
+  lines: 5;
+}
+
+mainbox {
+  // El único hijo será la lista, sin barra de búsqueda
+  children: [listview];
+  background-color: @bg;
+}
+
+/* vim: ft=sass */
+

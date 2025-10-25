@@ -1,0 +1,33 @@
+markup=pango
+
+[CPUtemp]
+command=~/.config/i3blocks/scripts/cpu_temp.sh
+interval=10
+
+[Bluetoot]
+command=~/.config/i3blocks/scripts/bluetooth.sh
+interval=5
+
+[Wireless]
+command=~/.config/i3blocks/scripts/wifi.sh
+interval=5
+
+[Ethernet]
+command=~/.config/i3blocks/scripts/net.sh
+interval=5
+
+[Volume]
+command=~/.config/i3blocks/scripts/volume.sh
+interval=5
+
+[Battery]
+command=~/.config/i3blocks/scripts/battery.sh
+interval=5
+
+[Date]
+command=echo "<span background='#bdb2ff' font_weight='bold'> $(date '+%D') </span>"
+interval=60
+
+[Time]
+command=echo "<span background='#ffc6ff' font_weight='bold'> $(date '+%H:%M') </span>"
+interval=1

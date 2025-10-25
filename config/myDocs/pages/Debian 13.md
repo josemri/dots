@@ -1,0 +1,22 @@
+- Voy a empezar una documentacion nueva para explicar como funciona todo lo que tengo configurado en mi debian ya que he dado muchas vueltas entre debian, xubuntu y un poco de arch. Para esta build estoy usando debian 13 bookworm con i3. Estoy intentando buscar una config minimalista que tenga todo lo que necesito.
+-
+- Aplicaciones instaladas:
+	- [[Firefox]]
+	- [[VirtualBox]]
+	- LibreOffice
+	- LogSeq
+	- Xournalpp++
+	- Thunderbird
+	- Zathura
+	- i3 / i3blocks
+	- rofi
+	- nitrogen
+	- Kitty
+		- tmux
+		- nvim
+		- pipewire
+		- bluetoothctl
+		- brightnessctl / light
+		- git
+		-
+- La idea dee estos dosc es explicar un poco lo que tengo montado para que en caso de querer cambiar de distro o de portatil o de lo que sea no me sea tan dificil volver a montarlo todo.

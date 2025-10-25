@@ -1,0 +1,11 @@
+# Auto-launch tmux if not already inside a tmux session
+if command -v tmux >/dev/null 2>&1; then
+    if [ -z "$TMUX" ] && [ "$(tty)" != "/dev/tty1" ]; then
+        exec tmux
+    fi
+fi
+
+
+if [[ -z "$DISPLAY" ]] && [[ "$(tty)" == "/dev/tty1" ]]; then
+		exec startx
+fi

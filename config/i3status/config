@@ -1,0 +1,54 @@
+general {
+	output_format = "i3bar"
+	colors = false
+	markup = pango
+	interval = 5
+}
+
+order += "cpu_temperature 0"
+order += "wireless _first_"
+order += "ethernet _first_"
+order += "volume master"
+order += "battery 0"
+order += "time"
+
+cpu_temperature 0 {
+	format = "<span background='#de7573'> CPU temp:%degrees°C </span>"
+	path = "/sys/class/thermal/thermal_zone0/temp"
+}
+
+wireless _first_ {
+	format_up = "<span background='#289c93'> wnet:%quality %essid </span>"
+	format_down = "<span background='#289c93'> wnet:  Disconnected  </span>"
+	#format_off = "<span background='#289c93'> wnet:  Off  </span>"
+}
+
+ethernet _first_ {
+	format_up = "<span background='#289c93'> net: %speed </span>"
+	format_down = ""
+}
+
+volume master {
+	format = "<span background='#696ebf'> vol: %volume </span>"
+	format_muted = "<span background='#696ebf'> Mute </span>"
+	device = "default"
+	mixer = "Master"
+	mixer_idx = 0
+}
+
+battery 0 {
+	last_full_capacity = true
+	format = "<span background='#819400'> %statusbat: %percentage </span>"
+	format_down = "No Battery"
+	status_chr = "!"
+	status_bat = ""
+	status_unk = ""
+	status_full = ""
+	path = "/sys/class/power_supply/BAT%d/uevent"
+	low_threshold = 10
+	integer_battery_capacity = true
+}
+
+time {
+	format = "<span background='#7bbd90'> %D </span> <span background='#6caef0'> %H:%M </span>"
+}

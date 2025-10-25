@@ -1,0 +1,11 @@
+config nvim DOCS git
+config alias DOCS git
+config xdg-open DOCS git
+config xournallpp NO FUNCIONA CORRECTAMENTE EL pen no lo pilla en general 
+config tmux DOCS git
+config virtualbox DOCS (VBoxManage list vms) git 
+config term DOCS git
+config obsidian cambio a logSeq DOCS git
+i3blocks hecho DOCS git
+webapps? mas o menos hecho DOCS git
+clean os XD
