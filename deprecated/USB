@@ -1,0 +1,9 @@
+#mount usb
+/mount/josep/
+lsblk
+udisksctl mount -b /dev/sdb1
+
+#unmount usb
+sudo umount /dev/sdb1
+udisksctl power-off -b /dev/sdb
+

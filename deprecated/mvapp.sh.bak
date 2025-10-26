@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Detectar las salidas activas y sus workspaces asignados
+outputs=$(i3-msg -t get_outputs | jq -r '.[] | select(.active) | .name')
+mapfile -t active_outputs <<< "$outputs"
+
+# Asegúrate de tener al menos dos monitores
+if [ "${#active_outputs[@]}" -lt 2 ]; then
+    echo "Se requieren al menos dos monitores activos."
+    exit 1
+fi
+
+# Identificar los nombres de las salidas
+output1="${active_outputs[0]}"
+output2="${active_outputs[1]}"
+
+# Obtener los workspaces asignados a cada salida
+workspace1=$(i3-msg -t get_workspaces | jq -r ".[] | select(.output == \"$output1\") | .name")
+workspace2=$(i3-msg -t get_workspaces | jq -r ".[] | select(.output == \"$output2\") | .name")
+
+# Mover los workspaces a las salidas opuestas
+i3-msg workspace "$workspace1"; i3-msg move workspace to output "$output2"
+i3-msg workspace "$workspace2"; i3-msg move workspace to output "$output1"
+
