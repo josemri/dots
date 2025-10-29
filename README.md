@@ -1,1 +1,3 @@
-esta todo a medias, faltan cosas por subir, de momento es un backup y ya
+#i3 dots
+
+work in progress
