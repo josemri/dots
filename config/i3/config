@@ -146,26 +146,28 @@ bar {
 	}
 }
 
-bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl s +10% #brightness up DP-1
-bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl s 10%- #brightness down DP-1
-bindsym Shift+XF86MonBrightnessUp exec --no-startup-id light -s sysfs/leds/asus::screenpad -A 10 # brightness up eDP-1
-bindsym Shift+XF86MonBrightnessDown exec --no-startup-id light -s sysfs/leds/asus::screenpad -U 10 # brightness down eDP-1
+# brightness maps
+bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl s +10%
+bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl s 10%-
+bindsym Shift+XF86MonBrightnessUp exec --no-startup-id light -s sysfs/leds/asus::screenpad -A 10
+bindsym Shift+XF86MonBrightnessDown exec --no-startup-id light -s sysfs/leds/asus::screenpad -U 10
+
+
 bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
 bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
-bindsym Shift+XF86Launch6 exec --no-startup-id ./.config/fullscreen.sh
 bindsym XF86TouchpadToggle exec --no-startup-id ./.config/toggleMouse.sh
-bindsym Shift+XF86TouchpadToggle exec --no-startup-id ./.config/toggleTouchScreenpad.sh
+
 bindsym XF86AudioMute exec --no-startup-id "amixer sset Master toggle"
 bindsym XF86AudioRaiseVolume exec --no-startup-id "amixer sset Master 5%+" 
 bindsym XF86AudioLowerVolume exec --no-startup-id "amixer sset Master 5%-" 
-bindsym XF86Launch1 exec --no-startup-id "amixer sset Master 5%+" #exec "i3-nagbar -t warning -m 'keybind not configured' -b 'configurar' 'kitty nvim ~/.config/i3/config'" #por alguna razon ya no me detecta la tecla con xev
+# bindsym XF86Launch1 exec --no-startup-id
+
 bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
 bindsym Print exec --no-startup-id xfce4-screenshooter -f
+
 bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
 
-
-bindsym XF86PowerOff exec --no-startup-id ./Desktop/upload.sh
-
+# STARTUP ACTIONS
 exec --no-startup-id "amixer sset Master mute" # MUTE all audio
 exec --no-startup-id xrandr --output DP-1 --below eDP-1 # set secondary monitor position
 exec --no-startup-id setxkbmap -option caps:escape # remap caps to escape (nvim)

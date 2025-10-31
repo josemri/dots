@@ -1,5 +1,7 @@
 #!/bin/bash
 
+#bindsym Shift+XF86Launch6 exec --no-startup-id ./.config/fullscreen.sh
+
 window_id=$(xdotool selectwindow)
 if [ -z "$window_id" ]; then
     exit 1
