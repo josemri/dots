@@ -1,6 +1,6 @@
 alias nn='nvim'
 alias wpp='firefox --new-window --kiosk https://web.whatsapp.com'
-alias src='source ~/.bashrc'
+alias src='source ~/.zshrc'
 alias o='xdg-open'
 alias c3='n ~/.config/i3/config'
 alias w11='/usr/lib/virtualbox/VirtualBoxVM --comment "w11" --startvm "{4e647684-9612-4de9-aa52-72ad2c81b677}" &'
@@ -14,3 +14,4 @@ alias nmoff='nmcli off' #MAL
 alias nmon='nmcli power on' #mal
 alias info='fastfetch'
 alias cal='python3.13 ~/.config/bashrc/mycalendar.py'
+alias net='nmtui'
