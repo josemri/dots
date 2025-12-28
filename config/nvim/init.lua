@@ -14,7 +14,8 @@ vim.pack.add({
 	{src = "https://github.com/akinsho/toggleterm.nvim"},
 	{src = "https://github.com/akinsho/bufferline.nvim"},
     {src = "https://github.com/nvim-lua/plenary.nvim"},
-	{src = "https://github.com/nvim-telescope/telescope.nvim"}
+	{src = "https://github.com/nvim-telescope/telescope.nvim"},
+	{src = "https://github.com/yetone/avante.nvim"},
 })
 
 require "nvim-tree".setup()
@@ -53,6 +54,7 @@ local keymaps = {
 		{{'n'}, '<leader>f', ':Telescope find_files<CR>'}, -- buscar archivos
 		{{'n',}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
 		{{'n',}, '<leader>h', ':Telescope help_tags<CR>'}, -- buscar en la ayuda
+		-- {{'n',}, '<leader>aa', ':Avantetoggle<CR>'}, -- activar/desactivar avante.nvim
 }
 
 for _, k in ipairs(keymaps) do

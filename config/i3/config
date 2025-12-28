@@ -156,11 +156,14 @@ bindsym Shift+XF86MonBrightnessDown exec --no-startup-id light -s sysfs/leds/asu
 bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
 bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
 bindsym XF86TouchpadToggle exec --no-startup-id ./.config/toggleMouse.sh
+bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
 
-bindsym XF86AudioMute exec --no-startup-id "amixer sset Master toggle"
-bindsym XF86AudioRaiseVolume exec --no-startup-id "amixer sset Master 5%+" 
-bindsym XF86AudioLowerVolume exec --no-startup-id "amixer sset Master 5%-" 
-# bindsym XF86Launch1 exec --no-startup-id
+bindsym XF86AudioRaiseVolume exec --no-startup-id "pactl set-sink-volume @DEFAULT_SINK@ +5%"
+bindsym XF86AudioLowerVolume exec --no-startup-id "pactl set-sink-volume @DEFAULT_SINK@ -5%"
+bindsym XF86AudioMute exec --no-startup-id "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+
+
+#bindsym XF86Launch1 exec --no-startup-id
 
 bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
 bindsym Print exec --no-startup-id xfce4-screenshooter -f

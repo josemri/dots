@@ -29,6 +29,7 @@ element {
   padding: 8 12;
   background-color: transparent;
   text-color: @fg-alt;
+  text-halign: center;
 }
 
 element selected {
@@ -40,6 +41,7 @@ element-text {
   background-color: transparent;
   text-color: inherit;
   vertical-align: 0.5;
+  text-halign: center;
 }
 
 element-icon {
