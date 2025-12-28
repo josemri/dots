@@ -1,19 +1,4 @@
 #!/bin/bash
-
-# Cambia BAT0 si tu batería es otra (BAT1, etc.)
-BAT_PATH="/sys/class/power_supply/BAT0"
-
-PERCENT=$(cat $BAT_PATH/capacity)
-STATUS=$(cat $BAT_PATH/status 2>/dev/null)
-
-# Largo de la barra
-BAR_LENGTH=10
-
-
-# Segmentos llenos
-FILLED=$((PERCENT * BAR_LENGTH / 100))
-EMPTY=$((BAR_LENGTH - FILLED))
-
 battery_percentage=$(cat /sys/class/power_supply/BAT0/capacity)
 charging_status=$(cat /sys/class/power_supply/BAT0/status)
 
@@ -91,9 +76,4 @@ else
     esac
 fi
 
-
-
-BAR=$(printf '%0.s ' $(seq $EMPTY))$(printf '%0.s█' $(seq $FILLED))
-echo "[$BAR]$icon  "
-echo
-echo "#ffffff"
+echo "<span background='#a0c4ff' font_weight='bold'> $icon </span><span background='#a0c4ff' font_weight='bold'>${battery_percentage}% </span>"

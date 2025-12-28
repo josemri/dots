@@ -1,9 +1,15 @@
 #!/bin/bash
+
+# Largo de la barra
+BAR_LENGTH=10
+
+# Obtener info del volumen
 volume_info=$(amixer get Master)
 if echo "$volume_info" | grep -q '\[off\]'; then
-    echo "<span background='#9bf6ff' font_weight='bold'> 󰝟 </span><span background='#9bf6ff' font_weight='bold'>mute </span>"
+    icon="󰝟"
+    volume_percentage=0
 else
-    volume_percentage=$(echo "$volume_info" | grep -oP '\[\d+%\]' | head -1 | tr -d '[]' | tr -d '%')
+    volume_percentage=$(echo "$volume_info" | grep -oP '\[\d+%\]' | head -1 | tr -d '[]%' )
     case $volume_percentage in
         [0-9]|1[0-9]|2[0-9])
             icon="󰕿"
@@ -15,5 +21,15 @@ else
             icon="󰕾"
             ;;
     esac
-    echo "<span background='#9bf6ff' font_weight='bold'> $icon </span><span background='#9bf6ff' font_weight='bold'>$volume_percentage% </span>"
 fi
+
+# Calcular barra de progreso
+FILLED=$((volume_percentage * BAR_LENGTH / 100))
+EMPTY=$((BAR_LENGTH - FILLED))
+BAR=$(printf '%0.s ' $(seq $EMPTY))$(printf '%0.s█' $(seq $FILLED))
+
+# Mostrar barra y porcentaje
+echo "[$BAR]$icon  "
+echo
+echo "#ffffff"
+
