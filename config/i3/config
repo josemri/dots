@@ -174,5 +174,8 @@ bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
 exec --no-startup-id "amixer sset Master mute" # MUTE all audio
 exec --no-startup-id xrandr --output DP-1 --below eDP-1 # set secondary monitor position
 exec --no-startup-id setxkbmap -option caps:escape # remap caps to escape (nvim)
-exec --no-startup-id ~/.config/bashrc/mapPen.sh # map pen buttons
- 
+# exec --no-startup-id ~/.config/bashrc/mapPen.sh # map pen buttons
+
+# exec --no-startup-id xinput disable "$(xinput list | grep "touch" | grep -o 'id=[0-9]\+' | cut -d= -f2)" # disable touch screen
+# exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus stylus" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1
+# exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1 

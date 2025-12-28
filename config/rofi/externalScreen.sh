@@ -10,7 +10,7 @@ options="󰆑 Duplicate main to HDMI
 󰞘 Extend main to HDMI
 󰛧  Off laptop, 󰡁 On HDMI"
 
-selection=$(echo -e "$options" | rofi -dmenu -theme ~/.config/rofi/power.rasi -p "Power Menu")
+selection=$(echo -e "$options" | rofi -dmenu -theme ~/.config/rofi/config.rasi -p ">")
 
 if [ -z "$selection" ]; then
   exit 0
