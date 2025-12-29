@@ -158,24 +158,27 @@ bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # togg
 bindsym XF86TouchpadToggle exec --no-startup-id ./.config/toggleMouse.sh
 bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
 
-bindsym XF86AudioRaiseVolume exec --no-startup-id "pactl set-sink-volume @DEFAULT_SINK@ +5%"
-bindsym XF86AudioLowerVolume exec --no-startup-id "pactl set-sink-volume @DEFAULT_SINK@ -5%"
-bindsym XF86AudioMute exec --no-startup-id "pactl set-sink-mute @DEFAULT_SINK@ toggle"
+bindsym XF86AudioRaiseVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%+"
+bindsym XF86AudioLowerVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%-"
+bindsym XF86AudioMute exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ toggle"
 
 
 #bindsym XF86Launch1 exec --no-startup-id
 
 bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
 bindsym Print exec --no-startup-id xfce4-screenshooter -f
+bindsym XF86Launch1 exec --no-startup-id ./.config/rofi/rec.sh
 
 bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
 
 # STARTUP ACTIONS
-exec --no-startup-id "amixer sset Master mute" # MUTE all audio
+exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ true" # mute audio on startup
 exec --no-startup-id xrandr --output DP-1 --below eDP-1 # set secondary monitor position
 exec --no-startup-id setxkbmap -option caps:escape # remap caps to escape (nvim)
-# exec --no-startup-id ~/.config/bashrc/mapPen.sh # map pen buttons
+exec --no-startup-id xinput disable "$(xinput list | grep "touch" | grep -o 'id=[0-9]\+' | cut -d= -f2)" # disable touch screen
+exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus stylus" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1
+exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1 
 
-# exec --no-startup-id xinput disable "$(xinput list | grep "touch" | grep -o 'id=[0-9]\+' | cut -d= -f2)" # disable touch screen
-# exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus stylus" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1
-# exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1 
+
+for_window [class="floatterm"] floating enable
+for_window [title="FFplayWindow"] floating enable, resize set 640 480, move position center

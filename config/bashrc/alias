@@ -17,3 +17,8 @@ alias net='nmtui'
 alias purge='sudo ~/.config/bashrc/purge.sh'
 alias rm='trash-put'
 alias disk='ncdu /'
+# alias cd='z'
+
+# ffmpeg alias
+
+alias play='ffplay'

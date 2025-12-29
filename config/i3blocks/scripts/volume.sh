@@ -1,35 +1,38 @@
 #!/bin/bash
 
-# Largo de la barra
 BAR_LENGTH=10
 
 # Obtener info del volumen
-volume_info=$(amixer get Master)
-if echo "$volume_info" | grep -q '\[off\]'; then
+volume_info=$(wpctl get-volume @DEFAULT_SINK@)
+
+# Comprobar si está muteado
+if echo "$volume_info" | grep -q "MUTED"; then
     icon="󰝟"
     volume_percentage=0
 else
-    volume_percentage=$(echo "$volume_info" | grep -oP '\[\d+%\]' | head -1 | tr -d '[]%' )
-    case $volume_percentage in
-        [0-9]|1[0-9]|2[0-9])
-            icon="󰕿"
-            ;;
-        3[0-9]|4[0-9]|5[0-9]|6[0-9])
-            icon="󰖀"
-            ;;
-        7[0-9]|8[0-9]|9[0-9]|100)
-            icon="󰕾"
-            ;;
-    esac
+    # Extraer decimal
+    volume_decimal=$(echo "$volume_info" | awk '{print $2}')
+
+    volume_percentage=${volume_decimal#0.}   # quita el "0."
+    if [ ${#volume_percentage} -eq 1 ]; then
+        volume_percentage=$((volume_percentage * 10))
+    fi
+
+    if (( volume_percentage < 30 )); then
+        icon="󰕿"
+    elif (( volume_percentage < 70 )); then
+        icon="󰖀"
+    else
+        icon="󰕾"
+    fi
 fi
 
-# Calcular barra de progreso
+# Calcular barra
 FILLED=$((volume_percentage * BAR_LENGTH / 100))
 EMPTY=$((BAR_LENGTH - FILLED))
 BAR=$(printf '%0.s ' $(seq $EMPTY))$(printf '%0.s█' $(seq $FILLED))
 
-# Mostrar barra y porcentaje
-echo "[$BAR]$icon  "
+echo "[$BAR]$icon "
 echo
 echo "#ffffff"
 

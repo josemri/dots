@@ -4,9 +4,7 @@
 connection_info=$(nmcli -t -f name,device connection show --active | grep wlo1)
 
 # Si no hay conexión
-if [ -z "$connection_info" ]; then
-    echo "[ none ]󰤭 "
-else
+if [ "$connection_info" ]; then
     # Obtener SSID
     ssid=$(echo "$connection_info" | cut -d: -f1)
     
