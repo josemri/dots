@@ -1,38 +1,38 @@
 #!/bin/bash
 
+case $BLOCK_BUTTON in
+  1) wpctl set-mute @DEFAULT_SINK@ toggle ;;
+esac
+
+
 BAR_LENGTH=10
+info=$(wpctl get-volume @DEFAULT_SINK@)
 
-# Obtener info del volumen
-volume_info=$(wpctl get-volume @DEFAULT_SINK@)
-
-# Comprobar si está muteado
-if echo "$volume_info" | grep -q "MUTED"; then
-    icon="󰝟"
-    volume_percentage=0
+if [[ $info == *MUTED* ]]; then
+    # Centrar "MUTE" en una barra de longitud BAR_LENGTH
+    left=$(( (BAR_LENGTH-4)/2 ))
+    right=$(( BAR_LENGTH-4-left ))
+    BAR=$(printf '%*sMUTE%*s' $left '' $right '')
 else
-    # Extraer decimal
-    volume_decimal=$(echo "$volume_info" | awk '{print $2}')
-
-    volume_percentage=${volume_decimal#0.}   # quita el "0."
-    if [ ${#volume_percentage} -eq 1 ]; then
-        volume_percentage=$((volume_percentage * 10))
-    fi
-
-    if (( volume_percentage < 30 )); then
-        icon="󰕿"
-    elif (( volume_percentage < 70 )); then
-        icon="󰖀"
+    # Extraer número del formato "Volume: 1.25"
+    vol=$(echo $info | grep -oP '[0-9.]+')
+    
+    if [[ $vol == "0.00" ]]; then
+        # Barra vacía
+        BAR=$(printf ' %.0s' $(seq 1 $BAR_LENGTH))
+    elif [[ $vol == "1.00" ]]; then
+        # Barra completamente llena
+        BAR=$(printf '█%.0s' $(seq 1 $BAR_LENGTH))
     else
-        icon="󰕾"
+        # Calcular barra normalmente
+        vol_percent=$(printf "%.0f" $(echo "$vol*100" | bc))
+        filled=$(( (vol_percent*BAR_LENGTH + 50)/100 ))
+        empty=$(( BAR_LENGTH-filled ))
+	BAR=$(printf ' %.0s' $(seq 1 $empty))$(printf '█%.0s' $(seq 1 $filled))
     fi
 fi
 
-# Calcular barra
-FILLED=$((volume_percentage * BAR_LENGTH / 100))
-EMPTY=$((BAR_LENGTH - FILLED))
-BAR=$(printf '%0.s ' $(seq $EMPTY))$(printf '%0.s█' $(seq $FILLED))
-
-echo "[$BAR]$icon "
+echo "vol:[$BAR]"
 echo
 echo "#ffffff"
 

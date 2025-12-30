@@ -20,10 +20,6 @@ interval=5
 command=~/.config/i3blocks/scripts/battery.sh
 interval=5
 
-[Date]
-command=echo "[$(date '+%D')]  "; echo; echo "#ffffff"
-interval=60
-
 [Time]
-command=echo "[$(date '+%H:%M')]"; echo; echo "#ffffff"
-interval=1
+command=~/.config/i3blocks/scripts/time.sh
+interval=5

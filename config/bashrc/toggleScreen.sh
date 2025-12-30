@@ -8,4 +8,5 @@ else
 	echo 255 > '/sys/class/leds/asus::screenpad/brightness'
 	sleep 0.1
         xrandr --output DP-1 --auto --below eDP-1
+	nitrogen --restore
 fi

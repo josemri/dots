@@ -1,12 +1,9 @@
-!/bin/bash
+#!/bin/bash
 
-TIME=$(date '+%H:%M')
+case $BLOCK_BUTTON in
+  1) notify-send "$(date +%D)" "$(cal)" ;;
+esac
 
-if [ "$BLOCK_BUTTON" == "1" ]; then
-    # Abre rofi con clic izquierdo
-    exec terminator -x gnome-calculator
-fi
-
-echo "<span background='#ffc6ff' font_weight='bold'> $TIME </span>"
-
-
+echo "[$(date '+%H:%M')]"
+echo
+echo "#ffffff"
