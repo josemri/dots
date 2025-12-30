@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# Cambia BAT0 si tu batería es otra (BAT1, etc.)
+case $BLOCK_BUTTON in
+	1) notify-send "$(cat /sys/class/power_supply/BAT0/status)" "bat: $(cat /sys/class/power_supply/BAT0/capacity)%";;
+esac
+
+
+
 BAT_PATH="/sys/class/power_supply/BAT0"
 
 PERCENT=$(cat $BAT_PATH/capacity)
 STATUS=$(cat $BAT_PATH/status 2>/dev/null)
-
-# Largo de la barra
 BAR_LENGTH=10
-
-# Segmentos llenos
 FILLED=$((PERCENT * BAR_LENGTH / 100))
 EMPTY=$((BAR_LENGTH - FILLED))
 
