@@ -144,6 +144,10 @@ bar {
     }
 }
 
+#volume maps
+bindsym XF86AudioMute exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ toggle"
+bindsym XF86AudioLowerVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%-"
+bindsym XF86AudioRaiseVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%+ -l 1.0"
 
 # brightness maps
 bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl s +10%
@@ -151,24 +155,15 @@ bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl s 10%-
 bindsym Shift+XF86MonBrightnessUp exec --no-startup-id light -s sysfs/leds/asus::screenpad -A 10
 bindsym Shift+XF86MonBrightnessDown exec --no-startup-id light -s sysfs/leds/asus::screenpad -U 10
 
-
-bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
-bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
-bindsym XF86TouchpadToggle exec --no-startup-id ./.config/toggleMouse.sh
-bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
-
-bindsym XF86AudioRaiseVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%+ -l 1.0"
-bindsym XF86AudioLowerVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%-"
-bindsym XF86AudioMute exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ toggle"
-
-
-#bindsym XF86Launch1 exec --no-startup-id
-
-bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
-bindsym Print exec --no-startup-id xfce4-screenshooter -f
-bindsym XF86Launch1 exec --no-startup-id ./.config/rofi/rec.sh
-
+bindsym XF86TouchpadToggle exec --no-startup-id ./.config/bashrc/toggleMouse.sh
 bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
+bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
+bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
+bindsym XF86Launch1 exec --no-startup-id ./.config/rofi/rec.sh
+bindsym Print exec --no-startup-id xfce4-screenshooter -f
+bindsym XF86Launch6 exec --no-startup-id ./.config/bashrc/mvapp.sh
+bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
+bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
 
 # STARTUP ACTIONS
 exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ true" # mute audio on startup
@@ -180,7 +175,6 @@ exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" 
 
 # start notification daemon
 exec --no-startup-id dunst
-
 
 for_window [class="floatterm"] floating enable
 for_window [class="nmtui-term"] floating enable, resize set 600 400
