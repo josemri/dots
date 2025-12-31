@@ -11,6 +11,7 @@ bindsym $mod+Return exec kitty # start a terminal
 bindsym $mod+q kill
 bindsym $mod+d exec rofi -show drun -show-icons # start application launcher
 bindsym Mod1+Tab exec rofi -show window -show-icons # switch between windows
+bindsym $mod+w exec --no-startup-id ./.config/rofi/web.sh 
 
 # alternatively, you can use the cursor keys:
 bindsym $mod+Left focus left

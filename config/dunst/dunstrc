@@ -1,0 +1,45 @@
+[global]
+# Transparencia del fondo: 0 = opaco, 1 = transparente total
+# Dunst usa valores enteros entre 0-100
+# Ej: 20 = 20% transparente
+transparency = 20
+
+# Fuente
+font = Monospace 10
+
+# Posición de la notificación
+# top-left, top-right, bottom-left, bottom-right
+# origin = "top-right" funciona
+origin = "top-right"
+
+# Sin borde
+frame_width = 0
+
+width = 200
+# Colores
+# Formato ARGB hexadecimal (Alpha, Red, Green, Blue)
+# Para fondo transparente: el valor alpha debe ser bajo
+# Ej: #22000000 = negro muy transparente
+background = "#22000000"
+foreground = "#FFFFFF"
+
+[urgency_low]
+# Puedes personalizar colores por urgencia
+background = "#22000000"
+foreground = "#FFFFFF"
+
+[urgency_normal]
+background = "#22000000"
+foreground = "#FFFFFF"
+
+[urgency_critical]
+background = "#22000000"
+foreground = "#FFFFFF"
+
+[format]
+# Texto alineado a la derecha
+# summary = título, body = contenido
+summary = "%s"
+body = "%b"
+alignment = "right"
+
