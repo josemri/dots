@@ -19,11 +19,11 @@
   <property name="maximized" value="true"/>
   <property name="showToolbar" value="true"/>
   <property name="showSidebar" value="false"/>
-  <property name="sidebarWidth" value="141"/>
+  <property name="sidebarWidth" value="50"/>
   <property name="sidebarNumberingStyle" value="1"/>
   <property name="sidebarOnRight" value="false"/>
   <property name="scrollbarOnLeft" value="false"/>
-  <property name="menubarVisible" value="true"/>
+  <property name="menubarVisible" value="false"/>
   <property name="filepathShownInTitlebar" value="false"/>
   <property name="numColumns" value="1"/>
   <property name="numRows" value="1"/>
@@ -235,7 +235,7 @@
       <attribute name="drawingType" type="string" value="default"/>
     </data>
     <data name="pen">
-      <attribute name="color" type="hex" value="ffffffff"/>
+      <attribute name="color" type="hex" value="ff000000"/>
       <attribute name="drawingType" type="string" value="default"/>
       <attribute name="fill" type="int" value="0"/>
       <attribute name="fillAlpha" type="int" value="128"/>
