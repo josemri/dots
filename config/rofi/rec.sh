@@ -144,7 +144,7 @@ fi
 # ========================================
 # MAIN
 # ========================================
-source_choice=$( (xrandr --listmonitors | tail -n +2 | awk '{print $4}'; echo "camera"; echo "select window") | rofi -dmenu -p "Select what you want to record")
+source_choice=$( (xrandr --listmonitors | tail -n +2 | awk '{print $4}'; echo "camera"; echo "select window") | rofi -dmenu -p ">")
 if [[ "$source_choice" == "select window" ]]; then
     video_args=$(window_args)
     source_name="window"

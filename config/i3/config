@@ -179,4 +179,4 @@ exec --no-startup-id dunst
 
 for_window [class="floatterm"] floating enable
 for_window [class="nmtui-term"] floating enable, resize set 600 400
-for_window [title="FFplayWindow"] floating enable, resize set 640 480, move position center
+for_window [title="FFplayWindow"] floating enable, resize set 1280 720, move position center

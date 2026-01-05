@@ -19,6 +19,7 @@ alias rm='trash-put'
 alias disk='ncdu /'
 alias img='kitty +kitten icat'
 # alias cd='z'
+alias bth='bluetoothctl'
 
 # ffmpeg alias
 
