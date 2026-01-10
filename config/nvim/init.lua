@@ -20,7 +20,7 @@ vim.pack.add ({
 		{ src="tribela/transparent.nvim"},
 })
 
-require "alpha_config".config()
+require "alpha_custom".config()
 require "nvim-tree".setup()
 require "toggleterm".setup()
 require "bufferline".setup(
