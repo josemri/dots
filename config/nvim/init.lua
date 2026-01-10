@@ -6,17 +6,21 @@ vim.o.swapfile = false
 vim.g.mapleader = " "
 vim.o.winborder="rounded"
 
-vim.pack.add({
-	{src = "https://github.com/vague2k/vague.nvim"},
-    {src = "https://github.com/kyazdani42/nvim-tree.lua" },
-	{src = "https://github.com/chomosuke/typst-preview.nvim"},
-	{src = "https://github.com/github/copilot.vim"},
-	{src = "https://github.com/akinsho/toggleterm.nvim"},
-	{src = "https://github.com/akinsho/bufferline.nvim"},
-    {src = "https://github.com/nvim-lua/plenary.nvim"},
-	{src = "https://github.com/nvim-telescope/telescope.nvim"},
+vim.pack.add ({
+		{ src="kyazdani42/nvim-tree.lua" },
+		{ src="chomosuke/typst-preview.nvim"},
+		{ src="github/copilot.vim"},
+		{ src="akinsho/toggleterm.nvim"},
+		{ src="akinsho/bufferline.nvim"},
+		{ src="nvim-lua/plenary.nvim"},
+		{ src="nvim-telescope/telescope.nvim"},
+		{ src="goolord/alpha-nvim" },
+		{ src="echasnovski/mini.icons" },
+		{ src="catppuccin/nvim", as = "catppuccin" },
+		{ src="tribela/transparent.nvim"},
 })
 
+require "alpha_custom".config()
 require "nvim-tree".setup()
 require "toggleterm".setup()
 require "bufferline".setup(
@@ -27,7 +31,7 @@ require "bufferline".setup(
   }
 )
 
-vim.cmd("colorscheme vague")
+vim.cmd("colorscheme catppuccin")
 vim.cmd(":hi statusline guibg=NONE")
 
 local keymaps = {
