@@ -81,12 +81,13 @@ apt install -y \
     pipewire-audio \
     wireplumber \
     qutebrowser \
-	bluetoothctl \
 	bluez \
 	bluez-tools \
     ripgrep \
     fd-find \
 	fzf \
+	xorg
+
 
 success "base packages installed"
 
@@ -135,7 +136,7 @@ install_asus_wmi_screenpad() {
 configure_pipewire() {
     log "Configuring PipeWire..."
 
-    systemctl --user enable -now pipewire wireplumber || true
+	sudo -u "$SUDO_USER" systemctl --user enable --now pipewire wireplumber
 
     success "PipeWire configured"
 }
@@ -183,8 +184,8 @@ install_dotfiles() {
     ln -sf "$USER_HOME/dots/.zshrc" "$USER_HOME/.zshrc"
 
     # Link folders and files in .config
-    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
-        ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
+    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list, nitrogen; do
+        [ -e "$USER_HOME/dots/config/$item" ] && ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
     done
 
     success "Dotfiles linked!"
@@ -200,5 +201,8 @@ configure_networkmanager
 configure_pipewire
 configure_bluetooth
 install_dotfiles
+rm -rf /tmp/*
+chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/.config"
+chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/dots"
 
 success "completed correctly"
