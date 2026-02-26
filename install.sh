@@ -123,11 +123,16 @@ install_neovim_nightly() {
     log "Neovim nightly..."
 
     cd /tmp
-	curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
+    curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
     chmod u+x nvim-linux-x86_64.appimage
-	mkdir -p $USER_HOME/.local/bin/nvim
-    mv nvim-linux-x86_64.appimage $USER_HOME/.local/bin/nvim
-	chown "$SUDO_USER:$SUDO_USER" "$USER_HOME/.local/bin/nvim"
+
+    if [ ! -d "$USER_HOME/.local/bin/nvim" ]; then
+        mkdir -p "$USER_HOME/.local/bin/nvim"
+    fi
+
+    mv nvim-linux-x86_64.appimage "$USER_HOME/.local/bin/nvim"
+    chown "$SUDO_USER:$SUDO_USER" "$USER_HOME/.local/bin/nvim"
+
     success "Neovim nightly installed"
 }
 
