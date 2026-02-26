@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-
+USER_HOME=$(eval echo ~${SUDO_USER})
 LOG_FILE="/var/log/setup.log"
 
 # -------- COLORS --------
@@ -40,13 +40,36 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+show_banner() {
+   local colors=(196 202 226 46 51 21 201)
+   local i=0
+   
+   while IFS= read -r line; do
+       color=${colors[$((i % ${#colors[@]}))]}
+       echo -e "\e[38;5;${color}m${line}\e[0m"
+       i=$((i+1))
+   done << "EOF"
+       ___           _        _ _       _     
+      / (_)         | |      | | |     | |    
+     / / _ _ __  ___| |_ __ _| | |  ___| |__  
+    / / | | '_ \/ __| __/ _` | | | / __| '_ \ 
+ _ / /  | | | | \__ \ || (_| | | |_\__ \ | | |
+(_)_/   |_|_| |_|___/\__\__,_|_|_(_)___/_| |_|
+                                   by josemri
+                                              
+EOF
+}
+
+show_banner
 log "updating system..."
 apt update && apt upgrade -y
 success "system updated"
 
+
+
 # -------- BASE --------
 
-apt install -y linux-headers-$(uname -r)
+# apt install -y linux-headers-$(uname -r)
 
 log "base packages..."
 
@@ -78,13 +101,10 @@ apt install -y \
     dkms \
     build-essential \
     pipewire \
-    pipewire-audio \
     wireplumber \
     qutebrowser \
 	bluez \
-	bluez-tools \
     ripgrep \
-    fd-find \
 	fzf \
 	xorg
 
@@ -98,13 +118,10 @@ install_neovim_nightly() {
     log "Neovim nightly..."
 
     cd /tmp
-    curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux64.tar.gz
-
-    rm -rf /opt/nvim-linux64
-    tar -C /opt -xzf nvim-linux64.tar.gz
-
-    ln -sf /opt/nvim-linux64/bin/nvim /usr/local/bin/nvim
-
+	curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
+    chmod u+x nvim-linux-x86_64.appimage
+    mv nvim-linux-x86_64.appimage $USER_HOME/.local/bin/nvim
+	chown "$SUDO_USER:$SUDO_USER" "$USER_HOME/.local/bin/nvim"
     success "Neovim nightly installed"
 }
 
@@ -114,39 +131,65 @@ install_neovim_nightly() {
 install_asus_wmi_screenpad() {
     log "asus-wmi-screenpad..."
 
-    mkdir -p /usr/src/asus-wmi-1.0
-    cd /usr/src/asus-wmi-1.0
-    wget 'https://github.com/Plippo/asus-wmi-screenpad/archive/master.zip'
-    unzip master.zip
+    MODULE="asus-wmi"
+    VERSION="1.0"
+    SRC_DIR="/usr/src/${MODULE}-${VERSION}"
+
+    # delete if allready installed
+    if dkms status | grep -q "${MODULE}/${VERSION}"; then
+        log "Existing DKMS module detected. Removing..."
+
+        dkms remove -m "$MODULE" -v "$VERSION" --all || true
+    fi
+
+    if [ -d "$SRC_DIR" ]; then
+        log "Removing existing source directory..."
+        rm -rf "$SRC_DIR"
+    fi
+
+    mkdir -p "$SRC_DIR"
+    cd "$SRC_DIR" || exit 1
+
+    wget -q https://github.com/Plippo/asus-wmi-screenpad/archive/master.zip -O master.zip
+    unzip -q master.zip
     mv asus-wmi-screenpad-master/* .
-    rmdir asus-wmi-screenpad-master
-    rm master.zip
+    rm -rf asus-wmi-screenpad-master master.zip
 
-	sh prepare-for-current-kernel.sh
-	dkms add -m asus-wmi -v 1.0
-	dkms build -m asus-wmi -v 1.0
-    dkms install -m asus-wmi -v 1.0
+    sh prepare-for-current-kernel.sh
 
-	mkdir -p /etc/udev/rules.d
-	sudo tee "/etc/udev/rules.d/99-asus.rules" > /dev/null << 'EOF'
+    dkms add -m "$MODULE" -v "$VERSION"
+    dkms build -m "$MODULE" -v "$VERSION"
+    dkms install -m "$MODULE" -v "$VERSION"
+
+    # Udev rule
+    mkdir -p /etc/udev/rules.d
+    tee /etc/udev/rules.d/99-asus.rules > /dev/null << 'EOF'
 # rules for asus_nb_wmi devices
 
-# make screenpad backlight brightness write-able by everyone
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::screenpad", RUN+="/bin/chmod a+w /sys/class/leds/%k/brightness"
 EOF
-	
-    success "asus-wmi-screenpad installed"
+
+    success "asus-wmi-screenpad installed (fresh install)"
 }
 
-# --------------------------------------------------
 # PIPEWIRE CONFIG
-# --------------------------------------------------
 configure_pipewire() {
     log "Configuring PipeWire..."
 
-	sudo -u "$SUDO_USER" systemctl --user enable --now pipewire wireplumber
+    USER_HOME=$(eval echo ~${SUDO_USER})
 
-    success "PipeWire configured"
+    if sudo -u "$SUDO_USER" systemctl --user is-enabled pipewire &>/dev/null; then
+        log "PipeWire already enabled for user. Skipping..."
+        success "PipeWire already configured"
+        return
+    fi
+
+    sudo -u "$SUDO_USER" systemctl --user enable pipewire wireplumber || {
+        warn "Could not enable user services (no active session?). They will start on next login."
+        return
+    }
+
+    success "PipeWire enabled (will start on next login)"
 }
 
 configure_bluetooth() {
@@ -170,8 +213,7 @@ configure_networkmanager() {
 install_dotfiles() {
     log "Configuring my dotfiles!"
 
-    USER_HOME=$(eval echo ~${SUDO_USER})
-
+    
     cd "$USER_HOME"
 
     # Clone repo if not exists
@@ -192,7 +234,7 @@ install_dotfiles() {
     ln -sf "$USER_HOME/dots/.zshrc" "$USER_HOME/.zshrc"
 
     # Link folders and files in .config
-    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list, nitrogen; do
+    for item in bashrc dunst i3 i3blocks img2.jpg kitty picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list, nitrogen; do
         [ -e "$USER_HOME/dots/config/$item" ] && ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
     done
 
@@ -212,6 +254,8 @@ Section "InputClass"
 EndSection
 EOF
 }
+
+
 
 # --------------------------------------------------
 # MAIN
