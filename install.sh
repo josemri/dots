@@ -256,6 +256,20 @@ EndSection
 EOF
 }
 
+set_default_shell() {
+    log "Setting zsh as default shell..."
+
+    ZSH_PATH=$(command -v zsh)
+
+    if [ -z "$ZSH_PATH" ]; then
+        error "zsh not found"
+    fi
+
+    chsh -s "$ZSH_PATH" "$SUDO_USER"
+
+    success "Default shell changed to zsh"
+}
+
 
 
 # --------------------------------------------------
@@ -268,6 +282,7 @@ configure_networkmanager
 configure_pipewire
 configure_bluetooth
 install_dotfiles
+set_default_shell
 asus_pen
 
 rm -rf /tmp/*
