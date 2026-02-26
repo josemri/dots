@@ -106,7 +106,11 @@ apt install -y \
 	bluez \
     ripgrep \
 	fzf \
-	xorg
+	xorg \
+	trash-cli \
+	ffmpeg \
+	ncdu \
+
 
 
 success "base packages installed"
