@@ -213,30 +213,26 @@ configure_networkmanager() {
 install_dotfiles() {
     log "Configuring my dotfiles!"
 
-    
+    USER_HOME=$(eval echo ~${SUDO_USER})
     cd "$USER_HOME"
 
-    # Clone repo if not exists
     if [ ! -d dots ]; then
-        git clone https://github.com/josemri/dots.git
+        sudo -u "$SUDO_USER" git clone https://github.com/josemri/dots.git
     else
         log "Dotfiles repo already exists, pulling latest..."
         cd dots
-        git pull
+
+        # Forzar remote HTTPS para evitar SSH
+        sudo -u "$SUDO_USER" git remote set-url origin https://github.com/josemri/dots.git
+        sudo -u "$SUDO_USER" git pull
+
         cd ..
     fi
 
-    # Ensure .config exists
     mkdir -p "$USER_HOME/.config"
 
-    # Link files in HOME
     ln -sf "$USER_HOME/dots/.p10k.zsh" "$USER_HOME/.p10k.zsh"
     ln -sf "$USER_HOME/dots/.zshrc" "$USER_HOME/.zshrc"
-
-    # Link folders and files in .config
-    for item in bashrc dunst i3 i3blocks img2.jpg kitty picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list, nitrogen; do
-        [ -e "$USER_HOME/dots/config/$item" ] && ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
-    done
 
     success "Dotfiles linked!"
 }
