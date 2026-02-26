@@ -229,13 +229,25 @@ install_dotfiles() {
     mkdir -p "$USER_HOME/.config"
 
     # Link files in HOME
-    ln -sf "$USER_HOME/dots/.p10k.zsh" "$USER_HOME/.p10k.zsh"
-    ln -sf "$USER_HOME/dots/.zshrc" "$USER_HOME/.zshrc"
+    for file in .p10k.zsh .zshrc; do
+	    SRC="$USER_HOME/dots/$file"
+	    DEST="$USER_HOME/$file"
+	
+	    [ -e "$DEST" ] || [ -L "$DEST" ] && rm -rf "$DEST"
+	    ln -s "$SRC" "$DEST"
+	done
 
     # Link folders and files in .config
     for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
-        ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
-    done
+	    SRC="$USER_HOME/dots/config/$item"
+	    DEST="$USER_HOME/.config/$item"
+	
+	    if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+	        rm -rf "$DEST"
+	    fi
+	
+	    ln -s "$SRC" "$DEST"
+	done
 
     success "Dotfiles linked!"
 }
