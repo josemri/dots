@@ -270,6 +270,42 @@ set_default_shell() {
     success "Default shell changed to zsh"
 }
 
+configure_power_button() {
+    log "Configuring power button behavior..."
+
+    LOGIND_CONF="/etc/systemd/logind.conf"
+
+    if grep -q "^[#]*HandlePowerKey=" "$LOGIND_CONF"; then
+        # Descomenta y cambia el valor
+        sed -i 's|^[#]*HandlePowerKey=.*|HandlePowerKey=ignore|' "$LOGIND_CONF"
+    else
+        # Si no existe la línea, la añadimos
+        echo "HandlePowerKey=ignore" >> "$LOGIND_CONF"
+    fi
+
+    systemctl restart systemd-logind
+
+    success "Power button will no longer shut down the system"
+}
+
+configure_grub() {
+    log "Configuring GRUB (no timeout)..."
+
+    GRUB_FILE="/etc/default/grub"
+
+    sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' "$GRUB_FILE"
+
+    if grep -q "^GRUB_TIMEOUT_STYLE=" "$GRUB_FILE"; then
+        sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' "$GRUB_FILE"
+    else
+        echo "GRUB_TIMEOUT_STYLE=hidden" >> "$GRUB_FILE"
+    fi
+
+    update-grub
+
+    success "GRUB configured to boot instantly"
+}
+
 
 
 # --------------------------------------------------
@@ -283,6 +319,8 @@ configure_pipewire
 configure_bluetooth
 install_dotfiles
 set_default_shell
+configure_power_button
+configure_grub
 asus_pen
 
 rm -rf /tmp/*
