@@ -126,8 +126,8 @@ install_neovim_nightly() {
     curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
     chmod u+x nvim-linux-x86_64.appimage
 
-    if [ ! -d "$USER_HOME/.local/bin/nvim" ]; then
-        mkdir -p "$USER_HOME/.local/bin/nvim"
+    if [ ! -d "$USER_HOME/.local/bin" ]; then
+        mkdir -p "$USER_HOME/.local/bin"
     fi
 
     mv nvim-linux-x86_64.appimage "$USER_HOME/.local/bin/nvim"
