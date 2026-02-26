@@ -218,6 +218,7 @@ install_dotfiles() {
     # Clone repo if not exists
     if [ ! -d dots ]; then
         git clone https://github.com/josemri/dots.git
+	fi
 
     # Ensure .config exists
     mkdir -p "$USER_HOME/.config"
