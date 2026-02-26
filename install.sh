@@ -176,20 +176,12 @@ EOF
 configure_pipewire() {
     log "Configuring PipeWire..."
 
-    USER_HOME=$(eval echo ~${SUDO_USER})
-
-    if sudo -u "$SUDO_USER" systemctl --user is-enabled pipewire &>/dev/null; then
-        log "PipeWire already enabled for user. Skipping..."
-        success "PipeWire already configured"
-        return
-    fi
-
+    # Habilitar para que arranque automáticamente en el próximo login del usuario
     sudo -u "$SUDO_USER" systemctl --user enable pipewire wireplumber || {
-        warn "Could not enable user services (no active session?). They will start on next login."
-        return
+        warn "Could not enable user services, they will start on next login."
     }
 
-    success "PipeWire enabled (will start on next login)"
+    success "PipeWire will start automatically on next login"
 }
 
 configure_bluetooth() {
@@ -238,6 +230,7 @@ install_dotfiles() {
 }
 
 asus_pen() {
+   log "Configuring asus_pen conf"
    mkdir -p /etc/X11/xorg.conf.d
    tee "/etc/X11/xorg.conf.d/50-asus-pen.conf" > /dev/null << 'EOF'
 Section "InputClass"
