@@ -69,7 +69,7 @@ success "system updated"
 
 # -------- BASE --------
 
-# apt install -y linux-headers-$(uname -r)
+apt install -y linux-headers-$(uname -r)
 
 log "base packages..."
 
@@ -110,6 +110,7 @@ apt install -y \
 	trash-cli \
 	ffmpeg \
 	ncdu \
+	fuse \
 
 
 
@@ -124,6 +125,7 @@ install_neovim_nightly() {
     cd /tmp
 	curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
     chmod u+x nvim-linux-x86_64.appimage
+	mkdir -p $USER_HOME/.local/bin/nvim
     mv nvim-linux-x86_64.appimage $USER_HOME/.local/bin/nvim
 	chown "$SUDO_USER:$SUDO_USER" "$USER_HOME/.local/bin/nvim"
     success "Neovim nightly installed"
@@ -210,28 +212,28 @@ install_dotfiles() {
     log "Configuring my dotfiles!"
 
     USER_HOME=$(eval echo ~${SUDO_USER})
+
     cd "$USER_HOME"
 
+    # Clone repo if not exists
     if [ ! -d dots ]; then
-        sudo -u "$SUDO_USER" git clone https://github.com/josemri/dots.git
-    else
-        log "Dotfiles repo already exists, pulling latest..."
-        cd dots
+        git clone https://github.com/josemri/dots.git
 
-        # Forzar remote HTTPS para evitar SSH
-        sudo -u "$SUDO_USER" git remote set-url origin git@github.com:josemri/dots.git
-        sudo -u "$SUDO_USER" git pull
-
-        cd ..
-    fi
-
+    # Ensure .config exists
     mkdir -p "$USER_HOME/.config"
 
+    # Link files in HOME
     ln -sf "$USER_HOME/dots/.p10k.zsh" "$USER_HOME/.p10k.zsh"
     ln -sf "$USER_HOME/dots/.zshrc" "$USER_HOME/.zshrc"
 
+    # Link folders and files in .config
+    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
+        ln -sf "$USER_HOME/dots/config/$item" "$USER_HOME/.config/$item"
+    done
+
     success "Dotfiles linked!"
 }
+
 
 asus_pen() {
    log "Configuring asus_pen conf"
