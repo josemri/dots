@@ -126,6 +126,14 @@ install_asus_wmi_screenpad() {
 	dkms add -m asus-wmi -v 1.0
 	dkms build -m asus-wmi -v 1.0
     dkms install -m asus-wmi -v 1.0
+
+	mkdir -p /etc/udev/rules.d
+	sudo tee "/etc/udev/rules.d/99-asus.rules" > /dev/null << 'EOF'
+# rules for asus_nb_wmi devices
+
+# make screenpad backlight brightness write-able by everyone
+ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::screenpad", RUN+="/bin/chmod a+w /sys/class/leds/%k/brightness"
+EOF
 	
     success "asus-wmi-screenpad installed"
 }
@@ -191,6 +199,20 @@ install_dotfiles() {
     success "Dotfiles linked!"
 }
 
+asus_pen() {
+   mkdir -p /etc/X11/xorg.conf.d
+   tee "/etc/X11/xorg.conf.d/50-asus-pen.conf" > /dev/null << 'EOF'
+Section "InputClass"
+
+      Identifier "ASUS SPEN"
+      MatchProduct "ELAN9009:00 04F3:2C58"
+      Driver "wacom"
+      Option "Gesture" "off"
+
+EndSection
+EOF
+}
+
 # --------------------------------------------------
 # MAIN
 # --------------------------------------------------
@@ -201,6 +223,8 @@ configure_networkmanager
 configure_pipewire
 configure_bluetooth
 install_dotfiles
+asus_pen
+
 rm -rf /tmp/*
 chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/.config"
 chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/dots"
