@@ -223,7 +223,7 @@ install_dotfiles() {
         cd dots
 
         # Forzar remote HTTPS para evitar SSH
-        sudo -u "$SUDO_USER" git remote set-url origin https://github.com/josemri/dots.git
+        sudo -u "$SUDO_USER" git remote set-url origin git@github.com:josemri/dots.git
         sudo -u "$SUDO_USER" git pull
 
         cd ..
