@@ -18,8 +18,10 @@ vim.pack.add ({
 		{ src="echasnovski/mini.icons" },
 		{ src="catppuccin/nvim", as = "catppuccin" },
 		{ src="tribela/transparent.nvim"},
+		{ src="https://github.com/m4xshen/hardtime.nvim" }, 
 })
 
+require "hardtime".setup()
 require "alpha_custom".config()
 require "nvim-tree".setup()
 require "toggleterm".setup()
@@ -49,8 +51,8 @@ local keymaps = {
 		{{'n'}, '<Tab>', ':BufferLineCycleNext<CR>'}, -- cambiar a la siguiente pestaña
 		{{'n'}, '<S-Tab>', ':BufferLineCyclePrev<CR>'}, -- cambiar a la pestaña anterior
 		{{'n'}, '<leader>f', ':Telescope find_files<CR>'}, -- buscar archivos
-		{{'n',}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
-		{{'n',}, '<leader>h', ':Telescope help_tags<CR>'}, -- buscar en la ayuda
+		{{'n'}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
+		{{'n'}, '<leader>h', ':Telescope help_tags<CR>'}, -- buscar en la ayuda
 }
 
 for _, k in ipairs(keymaps) do

@@ -6,7 +6,7 @@
   <property name="pressureMultiplier" value="1"/>
   <property name="zoomGesturesEnabled" value="true"/>
   <property name="selectedToolbar" value="Empty Toolbar Copy"/>
-  <property name="lastSavePath" value="/home/josep/uni/inteligentes/teoria"/>
+  <property name="lastSavePath" value="/home/josep/uni/videojuegos"/>
   <property name="lastOpenPath" value=""/>
   <property name="lastImagePath" value=""/>
   <property name="edgePanSpeed" value="20"/>
@@ -15,11 +15,11 @@
   <property name="zoomStepScroll" value="2"/>
   <property name="displayDpi" value="72"/>
   <property name="mainWndWidth" value="953"/>
-  <property name="mainWndHeight" value="505"/>
+  <property name="mainWndHeight" value="1070"/>
   <property name="maximized" value="true"/>
   <property name="showToolbar" value="true"/>
   <property name="showSidebar" value="false"/>
-  <property name="sidebarWidth" value="50"/>
+  <property name="sidebarWidth" value="141"/>
   <property name="sidebarNumberingStyle" value="1"/>
   <property name="sidebarOnRight" value="false"/>
   <property name="scrollbarOnLeft" value="false"/>
@@ -183,6 +183,10 @@
       <attribute name="deviceClass" type="int" value="0"/>
       <attribute name="deviceSource" type="int" value="5"/>
     </data>
+    <data name="Razer Razer Basilisk Essential">
+      <attribute name="deviceClass" type="int" value="1"/>
+      <attribute name="deviceSource" type="int" value="0"/>
+    </data>
   </data>
   <data name="lastUsedPageBgColor">
     <attribute name="color00" type="hex" value="ffdadcda"/>
@@ -197,7 +201,7 @@
     <attribute name="count" type="int" value="9"/>
   </data>
   <data name="tools">
-    <attribute name="current" type="string" value="pen"/>
+    <attribute name="current" type="string" value="selectRegion"/>
     <data name="drawArrow">
       <attribute name="drawingType" type="string" value="default"/>
     </data>
@@ -219,7 +223,7 @@
     <data name="eraser">
       <attribute name="drawingType" type="string" value="default"/>
       <attribute name="size" type="string" value="MEDIUM"/>
-      <attribute name="type" type="string" value="deleteStroke"/>
+      <attribute name="type" type="string" value="default"/>
     </data>
     <data name="hand">
       <attribute name="drawingType" type="string" value="default"/>
