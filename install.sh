@@ -102,15 +102,23 @@ apt install -y \
     build-essential \
     pipewire \
     wireplumber \
+	pipewire-pulse \
     qutebrowser \
-	bluez \
+    bluez \
     ripgrep \
-	fzf \
-	xorg \
-	trash-cli \
-	ffmpeg \
-	ncdu \
-	fuse \
+    fzf \
+    xorg \
+    trash-cli \
+    ffmpeg \
+    ncdu \
+    fuse \
+    fastfetch \
+	libnotify-bin \
+	ncal \
+	libspa-0.2-bluetooth \
+	jq \
+	bc \
+
 
 
 
@@ -336,7 +344,6 @@ configure_grub
 asus_pen
 
 rm -rf /tmp/*
-chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/.config"
-chown -R $SUDO_USER:$SUDO_USER "$USER_HOME/dots"
+chown -R $SUDO_USER:$SUDO_USER "$USER_HOME"
 
 success "completed correctly"

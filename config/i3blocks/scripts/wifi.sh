@@ -1,9 +1,9 @@
 #!/bin/bash
 
 case $BLOCK_BUTTON in
-  1) i3-msg exec "kitty --class nmtui-term -e nmtui" ;;
-  2) notify-send "test" "middle" ;;
-  3) notify-send "test" "right" ;;
+  1) i3-msg exec "kitty --class nmtui-term -e nmtui" ;; #left
+  2) i3-msg exec "nmcli device wifi rescan" ;; #middle
+  3) notify-send "test" "right" ;; #right
 esac
 
 
