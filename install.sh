@@ -116,8 +116,8 @@ apt install -y \
 	libnotify-bin \
 	ncal \
 	libspa-0.2-bluetooth \
-	jq \
-	bc \
+	jq \ #TODO: remove dependency
+	bc \ # TODO: remove dependency
 
 
 
