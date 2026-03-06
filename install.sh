@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-USER_HOME=$(eval echo ~${SUDO_USER})
-LOG_FILE="/var/log/setup.log"
+USER_HOME="$HOME"
 
 # -------- COLORS --------
 GREEN="\e[32m"
@@ -13,30 +12,31 @@ RESET="\e[0m"
 
 log() {
     echo -e "${BLUE}[INFO]${RESET} $1"
-    echo "[INFO] $1" >> "$LOG_FILE"
 }
 
 success() {
     echo -e "${GREEN}[OK]${RESET} $1"
-    echo "[OK] $1" >> "$LOG_FILE"
 }
 
 warn() {
     echo -e "${YELLOW}[WARN]${RESET} $1"
-    echo "[WARN] $1" >> "$LOG_FILE"
 }
 
 error() {
     echo -e "${RED}[ERROR]${RESET} $1"
-    echo "[ERROR] $1" >> "$LOG_FILE"
     exit 1
 }
 
 trap 'error "error at line: $LINENO"' ERR
 
-# -------- ROOT CHECK --------
-if [[ $EUID -ne 0 ]]; then
-    echo "exec as root"
+# -------- USER CHECK --------
+if [[ $EUID -eq 0 ]]; then
+    echo "do not run as root, run as your user"
+    exit 1
+fi
+
+if ! sudo -v 2>/dev/null; then
+    echo "sudo access required"
     exit 1
 fi
 
@@ -62,19 +62,18 @@ EOF
 
 show_banner
 log "updating system..."
-apt update && apt upgrade -y
+sudo apt update && sudo apt upgrade -y
 success "system updated"
 
 
 
 # -------- BASE --------
 
-apt install -y linux-headers-$(uname -r)
+sudo apt install -y linux-headers-$(uname -r)
 
 log "base packages..."
 
-apt install -y \
-    tmux \
+sudo apt install -y \
     i3 \
     i3blocks \
     zsh \
@@ -102,7 +101,7 @@ apt install -y \
     build-essential \
     pipewire \
     wireplumber \
-	pipewire-pulse \
+    pipewire-pulse \
     qutebrowser \
     bluez \
     ripgrep \
@@ -113,13 +112,11 @@ apt install -y \
     ncdu \
     fuse \
     fastfetch \
-	libnotify-bin \
-	ncal \
-	libspa-0.2-bluetooth \
-	jq \ #TODO: remove dependency
-	bc \ # TODO: remove dependency
-
-
+    libnotify-bin \
+    ncal \
+    libspa-0.2-bluetooth \
+    jq \
+    bc
 
 
 success "base packages installed"
@@ -133,13 +130,7 @@ install_neovim_nightly() {
     cd /tmp
     curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
     chmod u+x nvim-linux-x86_64.appimage
-
-    if [ ! -d "$USER_HOME/.local/bin" ]; then
-        mkdir -p "$USER_HOME/.local/bin"
-    fi
-
-    mv nvim-linux-x86_64.appimage "$USER_HOME/.local/bin/nvim"
-    chown "$SUDO_USER:$SUDO_USER" "$USER_HOME/.local/bin/nvim"
+    sudo mv nvim-linux-x86_64.appimage "/usr/local/bin/"
 
     success "Neovim nightly installed"
 }
@@ -157,17 +148,16 @@ install_asus_wmi_screenpad() {
     # delete if allready installed
     if dkms status | grep -q "${MODULE}/${VERSION}"; then
         log "Existing DKMS module detected. Removing..."
-
-        dkms remove -m "$MODULE" -v "$VERSION" --all || true
+        sudo dkms remove -m "$MODULE" -v "$VERSION" --all || true
     fi
 
     if [ -d "$SRC_DIR" ]; then
         log "Removing existing source directory..."
-        rm -rf "$SRC_DIR"
+        sudo rm -rf "$SRC_DIR"
     fi
 
-    mkdir -p "$SRC_DIR"
-    cd "$SRC_DIR" || exit 1
+    WORK_DIR=$(mktemp -d)
+    cd "$WORK_DIR"
 
     wget -q https://github.com/Plippo/asus-wmi-screenpad/archive/master.zip -O master.zip
     unzip -q master.zip
@@ -176,13 +166,18 @@ install_asus_wmi_screenpad() {
 
     sh prepare-for-current-kernel.sh
 
-    dkms add -m "$MODULE" -v "$VERSION"
-    dkms build -m "$MODULE" -v "$VERSION"
-    dkms install -m "$MODULE" -v "$VERSION"
+    sudo mkdir -p "$SRC_DIR"
+    sudo cp -r . "$SRC_DIR/"
+    cd /
+    rm -rf "$WORK_DIR"
+
+    sudo dkms add -m "$MODULE" -v "$VERSION"
+    sudo dkms build -m "$MODULE" -v "$VERSION"
+    sudo dkms install -m "$MODULE" -v "$VERSION"
 
     # Udev rule
-    mkdir -p /etc/udev/rules.d
-    tee /etc/udev/rules.d/99-asus.rules > /dev/null << 'EOF'
+    sudo mkdir -p /etc/udev/rules.d
+    sudo tee /etc/udev/rules.d/99-asus.rules > /dev/null << 'EOF'
 # rules for asus_nb_wmi devices
 
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::screenpad", RUN+="/bin/chmod a+w /sys/class/leds/%k/brightness"
@@ -195,8 +190,7 @@ EOF
 configure_pipewire() {
     log "Configuring PipeWire..."
 
-    # Habilitar para que arranque automáticamente en el próximo login del usuario
-    sudo -u "$SUDO_USER" systemctl --user enable pipewire wireplumber || {
+    systemctl --user enable pipewire wireplumber || {
         warn "Could not enable user services, they will start on next login."
     }
 
@@ -206,17 +200,17 @@ configure_pipewire() {
 configure_bluetooth() {
     log "configuring bluetooth..."
 
-	systemctl enable bluetooth
-    systemctl start bluetooth
+    sudo systemctl enable bluetooth
+    sudo systemctl start bluetooth
 
-	success "bluetooth configured"
+    success "bluetooth configured"
 }
 
 configure_networkmanager() {
    log "configuring networkmanager..."
    
-   systemctl enable NetworkManager
-   systemctl start NetworkManager
+   sudo systemctl enable NetworkManager
+   sudo systemctl start NetworkManager
    
    success "networkmanager configured"
 }
@@ -224,38 +218,36 @@ configure_networkmanager() {
 install_dotfiles() {
     log "Configuring my dotfiles!"
 
-    USER_HOME=$(eval echo ~${SUDO_USER})
-
-    cd "$USER_HOME"
+    cd "$HOME"
 
     # Clone repo if not exists
     if [ ! -d dots ]; then
         git clone https://github.com/josemri/dots.git
-	fi
+    fi
 
     # Ensure .config exists
-    mkdir -p "$USER_HOME/.config"
+    mkdir -p "$HOME/.config"
 
     # Link files in HOME
     for file in .p10k.zsh .zshrc; do
-	    SRC="$USER_HOME/dots/$file"
-	    DEST="$USER_HOME/$file"
-	
-	    [ -e "$DEST" ] || [ -L "$DEST" ] && rm -rf "$DEST"
-	    ln -s "$SRC" "$DEST"
-	done
+        SRC="$HOME/dots/$file"
+        DEST="$HOME/$file"
+
+        [ -e "$DEST" ] || [ -L "$DEST" ] && rm -rf "$DEST"
+        ln -s "$SRC" "$DEST"
+    done
 
     # Link folders and files in .config
-    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi tmux xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
-	    SRC="$USER_HOME/dots/config/$item"
-	    DEST="$USER_HOME/.config/$item"
-	
-	    if [ -e "$DEST" ] || [ -L "$DEST" ]; then
-	        rm -rf "$DEST"
-	    fi
-	
-	    ln -s "$SRC" "$DEST"
-	done
+    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
+        SRC="$HOME/dots/config/$item"
+        DEST="$HOME/.config/$item"
+
+        if [ -e "$DEST" ] || [ -L "$DEST" ]; then
+            rm -rf "$DEST"
+        fi
+
+        ln -s "$SRC" "$DEST"
+    done
 
     success "Dotfiles linked!"
 }
@@ -263,8 +255,8 @@ install_dotfiles() {
 
 asus_pen() {
    log "Configuring asus_pen conf"
-   mkdir -p /etc/X11/xorg.conf.d
-   tee "/etc/X11/xorg.conf.d/50-asus-pen.conf" > /dev/null << 'EOF'
+   sudo mkdir -p /etc/X11/xorg.conf.d
+   sudo tee "/etc/X11/xorg.conf.d/50-asus-pen.conf" > /dev/null << 'EOF'
 Section "InputClass"
 
       Identifier "ASUS SPEN"
@@ -285,7 +277,7 @@ set_default_shell() {
         error "zsh not found"
     fi
 
-    chsh -s "$ZSH_PATH" "$SUDO_USER"
+    chsh -s "$ZSH_PATH"
 
     success "Default shell changed to zsh"
 }
@@ -295,15 +287,13 @@ configure_power_button() {
 
     LOGIND_CONF="/etc/systemd/logind.conf"
 
-    if grep -q "^[#]*HandlePowerKey=" "$LOGIND_CONF"; then
-        # Descomenta y cambia el valor
-        sed -i 's|^[#]*HandlePowerKey=.*|HandlePowerKey=ignore|' "$LOGIND_CONF"
+    if sudo grep -q "^[#]*HandlePowerKey=" "$LOGIND_CONF"; then
+        sudo sed -i 's|^[#]*HandlePowerKey=.*|HandlePowerKey=ignore|' "$LOGIND_CONF"
     else
-        # Si no existe la línea, la añadimos
-        echo "HandlePowerKey=ignore" >> "$LOGIND_CONF"
+        echo "HandlePowerKey=ignore" | sudo tee -a "$LOGIND_CONF" > /dev/null
     fi
 
-    systemctl restart systemd-logind
+    sudo systemctl restart systemd-logind
 
     success "Power button will no longer shut down the system"
 }
@@ -313,15 +303,15 @@ configure_grub() {
 
     GRUB_FILE="/etc/default/grub"
 
-    sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' "$GRUB_FILE"
+    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' "$GRUB_FILE"
 
-    if grep -q "^GRUB_TIMEOUT_STYLE=" "$GRUB_FILE"; then
-        sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' "$GRUB_FILE"
+    if sudo grep -q "^GRUB_TIMEOUT_STYLE=" "$GRUB_FILE"; then
+        sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' "$GRUB_FILE"
     else
-        echo "GRUB_TIMEOUT_STYLE=hidden" >> "$GRUB_FILE"
+        echo "GRUB_TIMEOUT_STYLE=hidden" | sudo tee -a "$GRUB_FILE" > /dev/null
     fi
 
-    update-grub
+    sudo update-grub
 
     success "GRUB configured to boot instantly"
 }
@@ -343,7 +333,6 @@ configure_power_button
 configure_grub
 asus_pen
 
-rm -rf /tmp/*
-chown -R $SUDO_USER:$SUDO_USER "$USER_HOME"
+rm -f /tmp/nvim-linux-x86_64.appimage
 
 success "completed correctly"

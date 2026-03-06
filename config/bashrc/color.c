@@ -224,9 +224,6 @@ int main(void) {
         fprintf(stderr, "GrabPointer falló (status=%d)\n", rep[1]);
         close(fd); return 1;
     }
-
-    fprintf(stderr, "Haz click donde quieras...\n");
-
     /* Esperar evento ButtonPress (tipo 4)
      * Layout: [type(1), button(1), seq(2), time(4), root(4),
      *          event(4), child(4), root-x(2), root-y(2), ...]
