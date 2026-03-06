@@ -1,20 +1,8 @@
 return {
     'goolord/alpha-nvim',
-    dependencies = { 'echasnovski/mini.icons' },
     config = function()
         local alpha = require("alpha")
         local dashboard = require("alpha.themes.dashboard")
-
-        -- Función interna para oscurecer colores hexadecimales
-        local function darken(hex, factor)
-            factor = math.max(0, math.min(factor, 100))
-            local r, g, b = hex:match("#(..)(..)(..)")
-            r, g, b = tonumber(r, 16), tonumber(g, 16), tonumber(b, 16)
-            r = math.floor(r * (1 - factor / 100))
-            g = math.floor(g * (1 - factor / 100))
-            b = math.floor(b * (1 - factor / 100))
-            return string.format("#%02X%02X%02X", r, g, b)
-        end
 
         -- Funciones internas de alpha
         local function getLen(str, start_pos)
@@ -26,7 +14,7 @@ return {
         local function colorize(header, header_color_map, colors)
             for letter, color in pairs(colors) do
                 local color_name = "Alpha_" .. letter
-                vim.api.nvim_set_hl(0, color_name, color)
+                vim.api.nvim_set_hl(0, color_name, {fg = color})
                 colors[letter] = color_name
             end
 
@@ -46,9 +34,6 @@ return {
             end
             return colorized
         end
-
-        -- Paleta de colores y mapa de letras
-        local mocha = require("catppuccin.palettes").get_palette("mocha")
 
         local color_map = {
             [[      AAAA]],
@@ -76,36 +61,36 @@ return {
             [[]],
         }
 
-        local colors = {
-            ["A"] = { fg = mocha.rosewater},
-            ["B"] = { fg = darken("#FAC87C",5) },
-            ["C"] = { fg = mocha.mantle },
-            ["D"] = { fg = "#FF0000" },
-            ["E"] = { fg = darken("#BF854E", 35)},
-            ["F"] = { fg = darken("#FAC87C", 35) },
-            ["G"] = { fg = darken("#FAC87C", 25) },
-            ["H"] = { fg = darken("#502E2B", 10) },
-            ["I"] = { fg = "#38291B" },
-            ["J"] = { fg = "#00FF00" },
-            ["K"] = { fg = "#502E2B" },
-            ["L"] = { fg = "#0000FF" },
-            ["M"] = { fg = "#FFFFFF" },
-            ["N"] = { fg = "#FFFFFF" },
-            ["O"] = { fg = darken("#FAC87C", 45) },
-            ["P"] = { fg = "#FFFFFF" },
-            ["Q"] = { fg = darken("#BF854E", 20) },
-            ["R"] = { fg = "#BF854E" },
-            ["S"] = { fg = mocha.subtext1},
-            ["T"] = { fg = "#FFFFFF" },
-            ["U"] = { fg = darken("#FAC87C", 25) },
-            ["V"] = { fg = "#FFFFFF" },
-            ["W"] = { fg = "#FFFFFF" },
-            ["Y"] = { fg = "#FAC87C" },
-            ["X"] = { fg = darken("#FAC87C",20) },
-            ["Z"] = { fg = mocha.crust },
-        }
+		  local colors = {
+            ["A"] = "#f5e0dd",
+            ["B"] = "#edbe75",
+            ["C"] = "#181826",
+            ["D"] = "#FF0000",
+            ["E"] = "#7c5632",
+            ["F"] = "#a28250",
+            ["G"] = "#bb965d",
+            ["H"] = "#482926",
+            ["I"] = "#38291B",
+            ["J"] = "#00FF00",
+            ["K"] = "#502E2B",
+            ["L"] = "#0000FF",
+            ["M"] = "#FFFFFF",
+            ["N"] = "#FFFFFF",
+            ["O"] = "#896e44",
+            ["P"] = "#FFFFFF",
+            ["Q"] = "#986a3e",
+            ["R"] = "#BF854E",
+            ["S"] = "#bac2df",
+            ["T"] = "#FFFFFF",
+            ["U"] = "#bb965d",
+            ["V"] = "#FFFFFF",
+            ["W"] = "#FFFFFF",
+            ["Y"] = "#FAC87C",
+            ["X"] = "#c8a063",
+            ["Z"] = "#11111c",
+			}
 
-        -- Crear header de bloques
+		  -- Crear header de bloques
         local header = {}
         for _, line in ipairs(color_map) do
             local header_line = ""
@@ -115,8 +100,6 @@ return {
             table.insert(header, header_line)
         end
 
-        -- Agregar un título extra
-        -- table.insert(header, "                      vim                      ")
 
         -- Aplicar colores
         local colorized = colorize(header, color_map, colors)
@@ -132,7 +115,7 @@ return {
             dashboard.button("n", "  > New file", ":ene <BAR> startinsert <CR>"),
             dashboard.button("f", "󰈞  > Find file", ":cd $HOME | Telescope find_files<CR>"),
             dashboard.button("r", "  > Recent", ":Telescope oldfiles<CR>"),
-            dashboard.button("s", "  > Settings", ":e $MYVIMRC | :cd %:p:h | :Neotree filesystem toggle left<CR>"),
+            dashboard.button("s", "  > Settings", ":e $MYVIMRC | :cd %:p:h <CR>"),
             dashboard.button("q", "󰩈  > Quit", ":qa<CR>"),
         }
 
@@ -143,8 +126,3 @@ return {
         vim.cmd("autocmd FileType alpha setlocal nofoldenable")
     end
 }
-
-
-
-
-
