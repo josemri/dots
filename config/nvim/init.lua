@@ -7,13 +7,13 @@ vim.o.wrap = false -- do not break lines to fit in screen
 vim.o.scrolloff = 5 -- 5 lines margin
 
 vim.pack.add ({
-		{ src="nvim-lua/plenary.nvim"},
-		{ src="nvim-telescope/telescope.nvim"},
-		{ src="goolord/alpha-nvim" },
-		{ src="catppuccin/nvim", as = "catppuccin" },
+		{ src="https://github.com/nvim-lua/plenary.nvim"},
+		{ src="https://github.com/nvim-telescope/telescope.nvim"},
+		{ src="https://github.com/goolord/alpha-nvim" },
+		{ src="https://github.com/catppuccin/nvim", as = "catppuccin" },
 })
 
-require "alpha_custom".config()
+dofile(vim.fn.stdpath("config") .. "/alpha.lua")
 vim.cmd("colorscheme catppuccin")
 
 -- transparency
