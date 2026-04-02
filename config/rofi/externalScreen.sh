@@ -21,16 +21,18 @@ case "$selection" in
 		xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --same-as $INTERNAL_DISPLAY
 		;;
 	"󰞙 Extend main to HDMI")
-                xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --above $INTERNAL_DISPLAY
+      xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --above $INTERNAL_DISPLAY
 		;;
 	"󰞗 Extend main to HDMI")
 		xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --left-of $INTERNAL_DISPLAY
 		;;
 	"󰞘 Extend main to HDMI")
-                xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --right-of $INTERNAL_DISPLAY
+      xrandr --output $INTERNAL_DISPLAY --auto --output $EXTERNAL_DISPLAY --auto --right-of $INTERNAL_DISPLAY
 		;;
 	"󰛧  Off laptop, 󰡁 On HDMI") 
 		xrandr --output $INTERNAL_DISPLAY --off --output $SECONDARY_DISPLAY --off --output $EXTERNAL_DISPLAY --auto
 		;;
 	*) exit 1 ;;
 esac
+
+nitrogen --restore

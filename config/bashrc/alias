@@ -14,3 +14,5 @@ alias img='kitty +kitten icat'
 alias bth='bluetoothctl'
 alias play='ffplay'
 alias xournalpp='dbus-run-session xournalpp'
+alias calendar='ncal -M -b'
+alias ssh='kitty +kitten ssh' #fix for ssh in kitty
