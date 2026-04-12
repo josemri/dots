@@ -4,7 +4,7 @@ vim.o.tabstop = 3
 vim.o.shiftwidth = 3
 vim.g.mapleader = " "
 vim.o.wrap = false -- do not break lines to fit in screen
-vim.o.scrolloff = 5 -- 5 lines margin
+vim.o.scrolloff = 5
 
 vim.pack.add ({
 		{ src="https://github.com/nvim-lua/plenary.nvim"},
@@ -37,6 +37,10 @@ local keymaps = {
 		{{'n'}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
 		{{'n'}, '<leader>h', ':Telescope help_tags<CR>'}, -- buscar en la ayuda
 		{{'n'}, '<leader>b', ':Telescope buffers<CR>'}, -- listar buffers
+		{{'v'}, 'J', ":m '>+1<CR>gv=gv"},
+		{{'v'}, 'K', ":m '<-2<CR>gv=gv"},
+		{{'n'}, 'n', 'nzzzv'},
+		{{'n'}, 'N', 'nzzzv'},
 }
 
 for _, k in ipairs(keymaps) do

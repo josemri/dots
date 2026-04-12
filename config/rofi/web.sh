@@ -7,6 +7,7 @@ declare -A LINKS=(
   ["campus"]="https://campusvirtual.uclm.es"
   ["github"]="https://github.com"
   ["youtube"]="https://youtube.com"
+  ["claude"]="https://claude.ai/new"
 )
 choice=$(printf "%s\n" "${!LINKS[@]}" | rofi -dmenu -i -p "Web")
 [[ -n "$choice" ]] && xdg-open "${LINKS[$choice]}"
