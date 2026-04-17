@@ -1,9 +1,14 @@
 configuration {
   font: "JetBrainsMono Nerd Font Medium 10";
-  modi: "window,run,drun";
+  modi: "drun,web:~/.config/rofi/web.sh";
   drun-display-format: "{name}";
-  display-drun: "";
+  display-web: "[web]";
+  display-drun: "[app]";
   display-window: "Windows:";
+  kb-move-char-forward: "";
+  kb-move-char-back: "";
+  kb-mode-next: "Right";
+  kb-mode-previous: "Left";
 }
 
 @theme "/dev/null"
