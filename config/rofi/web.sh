@@ -8,9 +8,9 @@ declare -A LINKS=(
 	["campus"]="https://campusvirtual.uclm.es|icons/campusvirtual.ico"
 	["github"]="https://github.com|icons/github.ico"
 	["youtube"]="https://youtube.com|icons/youtube.ico"
+	["telegram"]="https://https://web.telegram.org/a/|icons/telegram.ico"
 )
 
-# Si no hay argumento → listar opciones (para rofi/wofi/etc.)
 if [[ -z "$1" ]]; then
 	for key in "${!LINKS[@]}"; do
 		IFS='|' read -r url icon <<< "${LINKS[$key]}"
@@ -21,15 +21,12 @@ fi
 
 choice="$1"
 
-# Si existe en el diccionario → abrir URL
 if [[ -n "${LINKS[$choice]}" ]]; then
 	IFS='|' read -r url icon <<< "${LINKS[$choice]}"
 	setsid -f xdg-open "$url" >/dev/null 2>&1
 	exit 0
 fi
 
-# Si no existe → buscar en Firefox (DuckDuckGo)
 query=$(printf "%s" "$choice" | sed 's/ /+/g')
-
 setsid -f firefox "https://duckduckgo.com/?q=$query" >/dev/null 2>&1
 exit 0
