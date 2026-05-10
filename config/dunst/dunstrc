@@ -2,7 +2,7 @@
 # Transparencia del fondo: 0 = opaco, 1 = transparente total
 # Dunst usa valores enteros entre 0-100
 # Ej: 20 = 20% transparente
-transparency = 20
+transparency = 0
 
 # Fuente
 font = Monospace 10
@@ -20,21 +20,9 @@ width = 200
 # Formato ARGB hexadecimal (Alpha, Red, Green, Blue)
 # Para fondo transparente: el valor alpha debe ser bajo
 # Ej: #22000000 = negro muy transparente
-background = "#22000000"
+background = "#585b7066"
 foreground = "#FFFFFF"
 
-[urgency_low]
-# Puedes personalizar colores por urgencia
-background = "#22000000"
-foreground = "#FFFFFF"
-
-[urgency_normal]
-background = "#22000000"
-foreground = "#FFFFFF"
-
-[urgency_critical]
-background = "#22000000"
-foreground = "#FFFFFF"
 
 [format]
 # Texto alineado a la derecha
