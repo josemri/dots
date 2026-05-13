@@ -8,7 +8,7 @@ declare -A LINKS=(
 	["campus"]="https://campusvirtual.uclm.es|icons/campusvirtual.ico"
 	["github"]="https://github.com|icons/github.ico"
 	["youtube"]="https://youtube.com|icons/youtube.ico"
-	["telegram"]="https://https://web.telegram.org/a/|icons/telegram.ico"
+	["telegram"]="https://web.telegram.org/a/|icons/telegram.ico"
 )
 
 if [[ -z "$1" ]]; then

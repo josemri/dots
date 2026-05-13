@@ -2,7 +2,7 @@
 
 options="󰐥 Shutdown\n Reboot\n󰗽 Logout"
 
-selection=$(echo -e "$options" | rofi -dmenu -theme ~/.config/rofi/config.rasi -p ">")
+selection=$(echo -e "$options" | rofi -dmenu -theme ~/.config/rofi/config.rasi -p "[pwr]")
 
 if [ -z "$selection" ]; then
   exit 0
