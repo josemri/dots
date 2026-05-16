@@ -1,0 +1,82 @@
+/* ~/.config/rofi/powermenu.rasi */
+
+configuration {
+    font: "JetBrainsMono Nerd Font Medium 15";
+
+    kb-move-char-forward: "";
+    kb-move-char-back: "";
+
+    kb-accept-entry: "Return,KP_Enter";
+
+    kb-row-left: "Left";
+    kb-row-right: "Right";
+}
+
+@theme "/dev/null"
+
+* {
+    bg: #1e1e2e00;
+    bg-alt: #585b7066;
+    bg-selected: #313244cc;
+
+    fg: #cdd6f4;
+
+    border: 0;
+    margin: 0;
+    padding: 0;
+    spacing: 0;
+}
+
+window {
+    transparency: "real";
+    background-color: transparent;
+
+    width: 320px;
+
+    location: center;
+    anchor: center;
+}
+
+mainbox {
+    background-color: transparent;
+
+    children: [listview];
+}
+listview {
+    columns: 3;
+    lines: 1;
+
+    flow: horizontal;
+
+    fixed-height: true;
+    dynamic: false;
+
+    spacing: 12px;
+
+    scrollbar: false;
+    cycle: false;
+
+    background-color: transparent;
+}
+
+element {
+    background-color: @bg-alt;
+
+    border-radius: 12px;
+
+    padding: 16px;
+
+    width: 72px;
+}
+
+element selected {
+    background-color: @bg-selected;
+}
+
+element-text {
+    text-color: @fg;
+    background-color: transparent;
+
+    horizontal-align: 0.5;
+    vertical-align: 0.5;
+}
