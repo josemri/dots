@@ -3,7 +3,6 @@
 declare -A LINKS=(
 	["claude"]="https://claude.ai/new|icons/claude.ico"
 	["whatsapp"]="https://web.whatsapp.com|icons/whatsapp.ico"
-	["discord"]="https://discord.com/app|icons/discord.ico"
 	["chatgpt"]="https://chat.openai.com|icons/chatgpt.ico"
 	["campus"]="https://campusvirtual.uclm.es|icons/campusvirtual.ico"
 	["github"]="https://github.com|icons/github.ico"

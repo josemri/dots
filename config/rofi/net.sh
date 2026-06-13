@@ -24,11 +24,15 @@ menu() {
 
 # Conectar a red seleccionada
 connect_network() {
-    SSID=$(list_networks | awk -F: '{print $1}' | rofi -dmenu -p "SSID")
+    local selected
+    selected=$(list_networks | rofi -dmenu -p "Red")
+    [ -z "$selected" ] && exit
+
+    # Extraer el SSID: eliminar el primer campo (barras) y los espacios iniciales
+    SSID=$(echo "$selected" | awk '{$1=""; sub(/^ /, ""); print}')
     [ -z "$SSID" ] && exit
 
-	 PASS=$(rofi -p "" -password -no-fixed-num-lines -dmenu <<< "")
-
+    PASS=$(rofi -p "" -password -no-fixed-num-lines -dmenu <<< "")
     if [ -z "$PASS" ]; then
         nmcli dev wifi connect "$SSID"
     else
