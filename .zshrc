@@ -30,3 +30,6 @@ source $ZSH/oh-my-zsh.sh
 export PATH="$PATH:/home/josep/.local/bin"
 #load super secret alias
 [[ -f ~/.config/bashrc/super-secret ]] && source ~/.config/bashrc/super-secret
+
+# opencode
+export PATH=/home/josep/.opencode/bin:$PATH
