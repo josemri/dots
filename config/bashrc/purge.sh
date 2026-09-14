@@ -57,10 +57,30 @@ run_cmd apt clean -y
 log "[4/12] Removing residual configuration files..."
 run_cmd dpkg -l | awk '/^rc/ {print $2}' | xargs -r apt purge -y
 
-log "[5/12] Removing old kernels..."
-CURRENT_KERNEL=$(uname -r)
-run_cmd dpkg -l 'linux-image-*' | awk '/^ii/ {print $2}' | grep -v "$CURRENT_KERNEL" | xargs -r apt purge -y || true
-run_cmd dpkg -l 'linux-headers-*' | awk '/^ii/ {print $2}' | grep -v "$CURRENT_KERNEL" | xargs -r apt purge -y || true
+log "[5/12] Removing OLD kernels (keeping current + newest fallback)..."
+# Nunca borramos el kernel en uso ni el de respaldo más reciente:
+#   /lib/modules/<versión> = única fuente de verdad de kernels presentes.
+# Se conservan los 2 más recientes (actual + fallback) y los demás se purgan
+# junto con sus headers EXACTOS (nada de borrar headers de kernels vivos).
+KEEP_KERNELS="${KEEP_KERNELS:-2}"
+mapfile -t KERS < <(for d in /lib/modules/[0-9]*; do echo "${d#/lib/modules/}"; done | sort -Vr)
+if [ "${#KERS[@]}" -le "$KEEP_KERNELS" ]; then
+    echo "   solo hay ${#KERS[@]} kernel(s) instalado(s): nada que purgar (actual=${KERS[0]})"
+else
+    to_purge=()
+    for v in "${KERS[@]:$KEEP_KERNELS}"; do
+        # headers si existen (mismo uso exacto de esa version)
+        for h in "linux-headers-${v%-*}-common" "linux-headers-${v%-*}-common-rt" "linux-headers-$v"; do
+            dpkg-query -W -f='${binary:Package}\n' "$h" >/dev/null 2>&1 && to_purge+=("$h")
+        done
+        to_purge+=("linux-image-$v")
+    done
+    if [ "${#to_purge[@]}" -gt 0 ]; then
+        echo "   protegiendo:      ${KERS[*]:0:$KEEP_KERNELS}"
+        echo "   purgando ${#to_purge[@]} paquete(s) viejos..."
+        run_cmd apt purge -y "${to_purge[@]}" || true
+    fi
+fi
 
 log "[6/12] Removing extra orphaned packages..."
 if command -v deborphan &>/dev/null; then

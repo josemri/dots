@@ -4,6 +4,14 @@
       "rev": "a9d8fb72213c8b461e791409e7feabb74eb6ce73",
       "src": "https://github.com/goolord/alpha-nvim"
     },
+    "cmp-buffer": {
+      "rev": "b74fab3656eea9de20a9b8116afa3cfc4ec09657",
+      "src": "https://github.com/hrsh7th/cmp-buffer"
+    },
+    "cmp-nvim-lsp": {
+      "rev": "cbc7b02bb99fae35cb42f514762b89b5126651ef",
+      "src": "https://github.com/hrsh7th/cmp-nvim-lsp"
+    },
     "nvim": {
       "rev": "c4d475e4b5684747cde9b3f849186af7837d4397",
       "src": "https://github.com/catppuccin/nvim"

@@ -76,7 +76,6 @@ log "base packages..."
 sudo apt install -y \
     i3 \
     i3blocks \
-    zsh \
     git \
     kitty \
     picom \
@@ -86,6 +85,7 @@ sudo apt install -y \
     keepass2 \
     libreoffice \
     thunderbird \
+	 firefox-esr \
     zathura \
     nitrogen \
     xfce4-screenshooter \
@@ -102,7 +102,6 @@ sudo apt install -y \
     pipewire \
     wireplumber \
     pipewire-pulse \
-    qutebrowser \
     bluez \
     ripgrep \
     fzf \
@@ -117,7 +116,6 @@ sudo apt install -y \
     libspa-0.2-bluetooth \
     jq \
     bc
-
 
 success "base packages installed"
 
