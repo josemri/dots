@@ -56,10 +56,43 @@ EOF
 udevadm control --reload-rules 2>/dev/null || true
 echo "   udev: regla MX250 creada"
 
-# 4) driver nvidia propietario
+# 4) driver nvidia propietario (requiere componente non-free en fuentes Debian)
 if dpkg-query -s nvidia-driver >/dev/null 2>&1; then
     echo "   nvidia-driver ya instalado"
 else
+    # limpiar libs nvidia de otra fuente (sin nvidia-driver) que bloquean el install
+    STRAY="$(dpkg -l 2>/dev/null | awk '$2 ~ /^(libnvidia-|libglx-nvidia0|xserver-xorg-video-nvidia|nvidia-vulkan-icd)/ && $1 != "un" {print $2}')"
+    if [ -n "$STRAY" ]; then
+        echo "   purgando libs nvidia de version extrana ($(echo $STRAY | wc -w))..."
+        for i in 1 2 3; do
+            DEBIAN_FRONTEND=noninteractive apt-get purge -y $STRAY >/dev/null 2>&1 && break
+            sleep 1
+        done
+    fi
+
+    # habilitar non-free solo en repos debian.org (ignora third-party)
+    for s in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+        [ -f "$s" ] || continue
+        if grep -Eq '^Components:' "$s"; then
+            # deb822: anadir non-free al bloque cuyo URIs contenga debian.org
+            awk '
+                /^URIs:.*deb\.debian\.org|^URIs:.*security\.debian\.org/{u=1}
+                /^Components:/ && u {
+                    found=0; n=split($0,a," ")
+                    for(i=1;i<=n;i++) if(a[i]=="non-free"){found=1;break}
+                    if(!found){print $0" non-free"; u=0; next}
+                    u=0
+                }
+                {u=0} 1
+            ' "$s" > "$s.tmp" && mv "$s.tmp" "$s"
+        else
+            # clasico: solo deb lines de debian.org
+            awk '/^[[:space:]]*deb .*deb\.debian\.org|^[[:space:]]*deb .*security\.debian\.org/{
+                found=0; for(i=1;i<=NF;i++) if($i=="non-free"){found=1;break}
+                if(!found){print $0" non-free"; next}
+            }1' "$s" > "$s.tmp" && mv "$s.tmp" "$s"
+        fi
+    done
     apt-get update -qq 2>/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nvidia-driver
     echo "   nvidia-driver instalado"
