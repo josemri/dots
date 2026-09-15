@@ -23,13 +23,12 @@ source $ZSH/oh-my-zsh.sh
 #alias and functions
 [[ -f ~/.config/bashrc/alias ]] && source ~/.config/bashrc/alias
 [[ -f ~/.config/bashrc/functions ]] && source ~/.config/bashrc/functions
+[[ -f ~/.config/bashrc/super-secret ]] && source ~/.config/bashrc/super-secret
 
 #p10k
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 export PATH="$PATH:/home/josep/.local/bin"
-#load super secret alias
-[[ -f ~/.config/bashrc/super-secret ]] && source ~/.config/bashrc/super-secret
 
 # opencode
 export PATH=/home/josep/.opencode/bin:$PATH
