@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -euo pipefail
-USER_HOME="$HOME"
 
 # -------- COLORS --------
 GREEN="\e[32m"
@@ -43,7 +42,7 @@ fi
 show_banner() {
    local colors=(196 202 226 46 51 21 201)
    local i=0
-   
+
    while IFS= read -r line; do
        color=${colors[$((i % ${#colors[@]}))]}
        echo -e "\e[38;5;${color}m${line}\e[0m"
@@ -56,7 +55,7 @@ show_banner() {
  _ / /  | | | | \__ \ || (_| | | |_\__ \ | | |
 (_)_/   |_|_| |_|___/\__\__,_|_|_(_)___/_| |_|
                                    by josemri
-                                              
+                                               
 EOF
 }
 
@@ -64,8 +63,6 @@ show_banner
 log "updating system..."
 sudo apt update && sudo apt upgrade -y
 success "system updated"
-
-
 
 # -------- BASE --------
 
@@ -85,7 +82,7 @@ sudo apt install -y \
     keepass2 \
     libreoffice \
     thunderbird \
-	 firefox-esr \
+    firefox-esr \
     zathura \
     nitrogen \
     xfce4-screenshooter \
@@ -106,6 +103,7 @@ sudo apt install -y \
     ripgrep \
     fzf \
     xorg \
+    zsh \
     trash-cli \
     ffmpeg \
     ncdu \
@@ -115,7 +113,8 @@ sudo apt install -y \
     ncal \
     libspa-0.2-bluetooth \
     jq \
-    bc
+    bc \
+    tlp
 
 success "base packages installed"
 
@@ -126,9 +125,11 @@ install_neovim_nightly() {
     log "Neovim nightly..."
 
     cd /tmp
-    curl -LO https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.appimage
-    chmod u+x nvim-linux-x86_64.appimage
-    sudo mv nvim-linux-x86_64.appimage "/usr/local/bin/"
+    curl -fsSL -o nvim.tar.gz https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz
+    sudo rm -rf /usr/local/nvim-linux-x86_64 /usr/local/bin/nvim
+    sudo tar -xzf nvim.tar.gz -C /usr/local
+    sudo ln -sf /usr/local/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
+    rm -f nvim.tar.gz
 
     success "Neovim nightly installed"
 }
@@ -143,7 +144,7 @@ install_asus_wmi_screenpad() {
     VERSION="1.0"
     SRC_DIR="/usr/src/${MODULE}-${VERSION}"
 
-    # delete if allready installed
+    # delete if already installed
     if dkms status | grep -q "${MODULE}/${VERSION}"; then
         log "Existing DKMS module detected. Removing..."
         sudo dkms remove -m "$MODULE" -v "$VERSION" --all || true
@@ -206,10 +207,10 @@ configure_bluetooth() {
 
 configure_networkmanager() {
    log "configuring networkmanager..."
-   
+
    sudo systemctl enable NetworkManager
    sudo systemctl start NetworkManager
-   
+
    success "networkmanager configured"
 }
 
@@ -250,6 +251,28 @@ install_dotfiles() {
     success "Dotfiles linked!"
 }
 
+setup_zsh() {
+    log "Setting up zsh / oh-my-zsh / powerlevel10k..."
+
+    ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
+    fi
+
+    mkdir -p "$ZSH_CUSTOM/themes" "$ZSH_CUSTOM/plugins"
+
+    if [ ! -d "$ZSH_CUSTOM/themes/powerlevel10k" ]; then
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$ZSH_CUSTOM/themes/powerlevel10k"
+    fi
+
+    for p in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
+        [ -d "$ZSH_CUSTOM/plugins/$p" ] || \
+            git clone --depth=1 "https://github.com/zsh-users/$p.git" "$ZSH_CUSTOM/plugins/$p"
+    done
+
+    success "zsh configured"
+}
 
 asus_pen() {
    log "Configuring asus_pen conf"
@@ -275,7 +298,7 @@ set_default_shell() {
         error "zsh not found"
     fi
 
-    chsh -s "$ZSH_PATH"
+    sudo chsh -s "$ZSH_PATH" "$USER"
 
     success "Default shell changed to zsh"
 }
@@ -314,7 +337,36 @@ configure_grub() {
     success "GRUB configured to boot instantly"
 }
 
+enable_tlp() {
+    log "Enabling TLP (battery optimization)..."
 
+    sudo systemctl disable --now power-profiles-daemon 2>/dev/null || true
+    sudo systemctl enable --now tlp
+
+    success "TLP active"
+}
+
+install_gpu_switch() {
+    log "Installing gpu-switch command..."
+
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$HOME/dots/config/bashrc/gpu-switch.sh" "$HOME/.local/bin/gpu-switch"
+
+    success "gpu-switch available as 'gpu-switch'"
+}
+
+run_hardware_fixes() {
+    log "Applying hardware fixes (ASUS UX481FL)..."
+
+    FIX_DIR="$HOME/dots/config/bashrc/fix"
+    [ -d "$FIX_DIR" ] || error "fix dir not found: $FIX_DIR"
+
+    sudo bash "$FIX_DIR/fix-acpi.sh"
+    sudo bash "$FIX_DIR/fix-sd-reader.sh"
+    sudo bash "$FIX_DIR/fix-gpu.sh"
+
+    success "Hardware fixes applied (REBOOT required)"
+}
 
 # --------------------------------------------------
 # MAIN
@@ -326,11 +378,13 @@ configure_networkmanager
 configure_pipewire
 configure_bluetooth
 install_dotfiles
+setup_zsh
 set_default_shell
 configure_power_button
 configure_grub
 asus_pen
-
-rm -f /tmp/nvim-linux-x86_64.appimage
+enable_tlp
+install_gpu_switch
+run_hardware_fixes
 
 success "completed correctly"
