@@ -1,3 +1,5 @@
 config/bashrc/super-secret
+config/bashrc/fix/.src/
 config/xournalpp/metadata
 config/nvim/nvim-pack-lock.json
+config/xournalpp/settings.xml

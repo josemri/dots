@@ -1,7 +1,14 @@
 #!/bin/bash
 # fix-gpu - Fix NVIDIA GeForce MX250 (TU117) para ASUS UX481FL
-# Nivel bajo: GRUB (pcie_port_pm=off), modprobe.d (nouveau fuera + KMS nvidia),
-# udev (power/control=on) e initramfs. Re-ejecutable / idempotente.
+#
+# Estrategia: nvidia NO carga al boot (carga bajo demanda). La dGPU se activa
+# solo cuando algo la necesita (Xorg PRIME, CUDA, monitor externo). Esto
+# acelera el boot eliminando ~7s de modprobe de módulos nvidia del critical chain.
+#
+# nvidia-persistenced se auto-inicia via udev cuando el modulo nvidia carga,
+# evitando el crash RRTellChanged (remove event de card1 durante init de X).
+#
+# Re-ejecutable / idempotente. No reinstala nvidia si ya está en la última versión.
 # Uso: sudo bash fix-gpu.sh [--rollback]
 set -e
 
@@ -9,15 +16,19 @@ set -e
 
 GRUB=/etc/default/grub
 MOD=/etc/modprobe.d/nvidia.conf
+PERSIST=/etc/systemd/system/nvidia-persistenced.service.d/10-fix-gpu.conf
 UDRULE=/etc/udev/rules.d/99-gpu-mx250.rules
+PERSUD=/etc/udev/rules.d/91-nvidia-persistenced.rules
 
 rollback() {
     echo "== Rollback fix GPU =="
     [ -f "$GRUB.bak-gpu-fix" ] && { cp -a "$GRUB.bak-gpu-fix" "$GRUB"; rm -f "$GRUB.bak-gpu-fix"; update-grub 2>/dev/null || true; echo "   GRUB restaurado"; }
-    rm -f "$MOD" "$UDRULE"
+    rm -f "$MOD" "$UDRULE" "$PERSUD" "$PERSIST"
+    rmdir /etc/systemd/system/nvidia-persistenced.service.d 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
     update-initramfs -u 2>/dev/null || true
     udevadm control --reload-rules 2>/dev/null || true
-    echo "   modprobe/udev recuperados"
+    echo "   modprobe/persistenced/udev recuperados"
     echo "   REINICIA para aplicar."
     exit 0
 }
@@ -44,22 +55,57 @@ fi
 cat > "$MOD" << 'EOF'
 # NVIDIA MX250: nouveau no sirve sin blob GSP Turing en libre
 blacklist nouveau
-# KMS/atomic necesario para Wayland
-options nvidia-drm modeset=1
+# KMS/atomic necesario para Wayland (nombre Debian: nvidia-current-drm)
+options nvidia-current-drm modeset=1
 EOF
 echo "   modprobe: nouveau fuera, KMS nvidia activo"
 
-# 3) udev: dGPU nunca D3cold
+# 3) ELIMINAR nvidia de modules-load.d (carga bajo demanda, no al boot)
+rm -f /etc/modules-load.d/nvidia.conf 2>/dev/null || true
+echo "   modules-load: nvidia ELIMINADO del boot (carga bajo demanda)"
+
+# 4) nvidia-persistenced: NO arranca al boot.
+#    Se auto-inicia via udev cuando el modulo nvidia carga en cualquier momento.
+#    El daemon mantiene la GPU inicializada/activa, evitando el remove event
+#    de card1 que provoca el segfault RRTellChanged en Xorg.
+systemctl disable nvidia-persistenced.service >/dev/null 2>&1 || true
+mkdir -p /etc/systemd/system/nvidia-persistenced.service.d
+cat > "$PERSIST" << 'EOF'
+[Unit]
+# Arranque on-demand via udev, NO al boot
+After=basic.target
+
+[Service]
+Restart=on-failure
+RestartSec=2
+EOF
+systemctl daemon-reload 2>/dev/null || true
+echo "   persistenced: deshabilitado del boot (on-demand via udev)"
+
+# 5) udev: auto-iniciar persistenced cuando el modulo nvidia carga
+cat > "$PERSUD" << 'EOF'
+# Iniciar nvidia-persistenced cuando el modulo nvidia se carga (bajo demanda)
+# Ocurra cuando sea: Xorg, CUDA, monitor externo, modprobe manual, etc.
+SUBSYSTEM=="module", KERNEL=="nvidia", TAG+="systemd", ENV{SYSTEMD_WANTS}+="nvidia-persistenced.service"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+echo "   udev: regla persistenced on-demand creada"
+
+# 6) udev: dGPU nunca D3cold (defensa extra por si el PM activo se habilita)
 cat > "$UDRULE" << 'EOF'
 ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{device}=="0x1d52", ATTR{power/control}="on"
 EOF
-udevadm control --reload-rules 2>/dev/null || true
-echo "   udev: regla MX250 creada"
+echo "   udev: regla MX250 power/control=on creada"
 
-# 4) driver nvidia propietario (requiere componente non-free en fuentes Debian)
-if dpkg-query -s nvidia-driver >/dev/null 2>&1; then
-    echo "   nvidia-driver ya instalado"
+# 7) driver nvidia propietario (requiere componente non-free en fuentes Debian).
+#    Solo se instala/actualiza si no esta presente o existe version mas nueva.
+NV_PKG=nvidia-driver
+NV_INST="$(dpkg-query -W -f='${Version}' $NV_PKG 2>/dev/null || true)"
+NV_CAND="$(apt-cache policy $NV_PKG 2>/dev/null | awk '/Candidate:/{print $2}')"
+if [ -n "$NV_INST" ] && { [ -z "$NV_CAND" ] || dpkg --compare-versions "$NV_INST" ge "$NV_CAND"; }; then
+    echo "   nvidia-driver ya en la ultima version ($NV_INST) - sin reinstalar"
 else
+    echo "   nvidia-driver: instalando/actualizando (instalada=$NV_INST candidata=$NV_CAND)..."
     # limpiar libs nvidia de otra fuente (sin nvidia-driver) que bloquean el install
     STRAY="$(dpkg -l 2>/dev/null | awk '$2 ~ /^(libnvidia-|libglx-nvidia0|xserver-xorg-video-nvidia|nvidia-vulkan-icd)/ && $1 != "un" {print $2}')"
     if [ -n "$STRAY" ]; then
@@ -95,13 +141,11 @@ else
     done
     apt-get update -qq 2>/dev/null
     DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nvidia-driver
-    echo "   nvidia-driver instalado"
+    echo "   nvidia-driver instalado/actualizado"
 fi
-
-# 5) initramfs: hornear modprobe para el arranque mas temprano
-update-initramfs -u 2>/dev/null || true
-echo "   initramfs actualizado"
 
 echo
 echo "== Listo. REINICIA para aplicar. =="
+echo "   Boot rapido: nvidia carga bajo demanda, no al boot."
+echo "   persistenced se activa solo cuando la dGPU se usa."
 echo "   Rollback: sudo bash $0 --rollback"

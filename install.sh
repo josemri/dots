@@ -81,7 +81,6 @@ sudo apt install -y \
     rofi \
     keepass2 \
     libreoffice \
-    thunderbird \
     firefox-esr \
     zathura \
     nitrogen \
@@ -143,17 +142,16 @@ install_asus_wmi_screenpad() {
     MODULE="asus-wmi"
     VERSION="1.0"
     SRC_DIR="/usr/src/${MODULE}-${VERSION}"
+    DKMS_TREE="/var/lib/dkms/${MODULE}"
 
-    # delete if already installed
-    if dkms status | grep -q "${MODULE}/${VERSION}"; then
-        log "Existing DKMS module detected. Removing..."
-        sudo dkms remove -m "$MODULE" -v "$VERSION" --all || true
-    fi
-
-    if [ -d "$SRC_DIR" ]; then
-        log "Removing existing source directory..."
-        sudo rm -rf "$SRC_DIR"
-    fi
+    # Reset COMPLETO e idempotente de una instalacion previa.
+    # dkms vive en /usr/sbin (fuera del PATH del usuario): siempre via sudo.
+    # No se confia en `dkms status` (puede quedar inconsistente tras un fallo
+    # y no listar el modulo aunque el arbol exista): se fuerza la limpieza.
+    log "Removing any previous ${MODULE} install (DKMS + source)..."
+    sudo dkms remove -m "$MODULE" -v "$VERSION" --all 2>/dev/null || true
+    sudo rm -rf "$DKMS_TREE"
+    sudo rm -rf "$SRC_DIR"
 
     WORK_DIR=$(mktemp -d)
     cd "$WORK_DIR"
@@ -170,9 +168,9 @@ install_asus_wmi_screenpad() {
     cd /
     rm -rf "$WORK_DIR"
 
-    sudo dkms add -m "$MODULE" -v "$VERSION"
+    sudo dkms add -m "$MODULE" -v "$VERSION" --force
     sudo dkms build -m "$MODULE" -v "$VERSION"
-    sudo dkms install -m "$MODULE" -v "$VERSION"
+    sudo dkms install -m "$MODULE" -v "$VERSION" --force
 
     # Udev rule
     sudo mkdir -p /etc/udev/rules.d
@@ -182,7 +180,7 @@ install_asus_wmi_screenpad() {
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::screenpad", RUN+="/bin/chmod a+w /sys/class/leds/%k/brightness"
 EOF
 
-    success "asus-wmi-screenpad installed (fresh install)"
+    success "asus-wmi-screenpad installed"
 }
 
 # PIPEWIRE CONFIG
@@ -212,6 +210,46 @@ configure_networkmanager() {
    sudo systemctl start NetworkManager
 
    success "networkmanager configured"
+}
+
+configure_tailscale_boot() {
+    log "Configuring tailscale socket activation..."
+
+    if ! command -v tailscale >/dev/null 2>&1; then
+        warn "tailscale not installed, skipping socket activation"
+        return 0
+    fi
+
+    # Socket: escucha en el control socket, arranca con sockets.target (~0s at boot)
+    sudo tee /etc/systemd/system/tailscaled.socket > /dev/null << 'EOF'
+[Unit]
+Description=Tailscale Socket
+
+[Socket]
+ListenStream=/run/tailscale/tailscaled.sock
+SocketMode=0666
+
+[Install]
+WantedBy=sockets.target
+EOF
+
+    # Drop-in: servicio activado por socket (no arranca solo al boot)
+    sudo mkdir -p /etc/systemd/system/tailscaled.service.d
+    sudo tee /etc/systemd/system/tailscaled.service.d/20-socket-activate.conf > /dev/null << 'EOF'
+[Unit]
+Wants=tailscaled.socket
+
+[Service]
+Sockets=tailscaled.socket
+EOF
+
+    # Deshabilitar y PARAR el servicio -> el daemon suelta el control socket.
+    # Si se deja corriendo, el socket ya esta en uso y arrancar la unit .socket
+    # falla con 'Job failed' (bind en uso).
+    sudo systemctl disable --now tailscaled.service 2>/dev/null || true
+    sudo systemctl enable --now tailscaled.socket
+
+    success "tailscale socket-activated (inicia al primer uso, 0s en boot)"
 }
 
 install_dotfiles() {
@@ -372,19 +410,20 @@ run_hardware_fixes() {
 # MAIN
 # --------------------------------------------------
 
-install_neovim_nightly
-install_asus_wmi_screenpad
-configure_networkmanager
-configure_pipewire
-configure_bluetooth
-install_dotfiles
-setup_zsh
-set_default_shell
-configure_power_button
-configure_grub
-asus_pen
-enable_tlp
-install_gpu_switch
-run_hardware_fixes
+#install_neovim_nightly
+#install_asus_wmi_screenpad
+#configure_networkmanager
+configure_tailscale_boot
+#configure_pipewire
+#configure_bluetooth
+#install_dotfiles
+#setup_zsh
+#set_default_shell
+#configure_power_button
+#configure_grub
+#asus_pen
+#enable_tlp
+#install_gpu_switch
+#run_hardware_fixes
 
 success "completed correctly"
