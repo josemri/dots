@@ -30,6 +30,7 @@ local keymaps = {
 		{{'n','v','x'}, '<leader>d', '"+d'}, -- cortar del portapapeles del sistema
 		{{'n'}, '<Tab>', ':bnext<CR>'}, -- cambiar a la siguiente pestaña
 		{{'n'}, '<S-Tab>', ':bprevious<CR>'}, -- cambiar a la pestaña anterior anterior
+		{{'n'}, '<leader>w', ':write<CR>'}, -- guardar archivo
 		{{'n'}, '<leader>f', ':Telescope find_files<CR>'}, -- buscar archivos
 		{{'n'}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
 		{{'n'}, '<leader>h', ':Telescope help_tags<CR>'}, -- buscar en la ayuda
