@@ -15,6 +15,7 @@ vim.pack.add ({
 		{ src="https://github.com/catppuccin/nvim", as = "catppuccin" },
 		{ src = "https://github.com/hrsh7th/cmp-nvim-lsp" },
 		{ src = "https://github.com/hrsh7th/cmp-buffer" },
+		{ src = "https://github.com/barrettruth/live-server.nvim" },
 })
 
 dofile(vim.fn.stdpath("config") .. "/alpha.lua")
@@ -38,6 +39,7 @@ local keymaps = {
 		{{'v'}, 'K', ":m '<-2<CR>gv=gv"},
 		{{'n'}, 'n', 'nzzzv'}, --better next in lists
 		{{'n'}, 'N', 'nzzzv'},
+		{{'n'}, '<leader>l', ':LiveServerToggle<CR>'}, -- live preview
 }
 
 for _, k in ipairs(keymaps) do
@@ -59,6 +61,9 @@ vim.lsp.config("clangd", {
 
 
 vim.lsp.enable("clangd")
+
+--Web (HTML/CSS/JS) setup
+vim.lsp.enable({ "ts_ls", "html", "cssls", "jsonls" })
 vim.api.nvim_create_autocmd("LspAttach", {
     callback = function(ev)
         local o = { buffer = ev.buf }
