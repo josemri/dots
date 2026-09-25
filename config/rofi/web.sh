@@ -18,7 +18,7 @@ declare -A LINKS=(
 )
 
 usage() {
-	printf 'uso: web.sh [--add <nombre> <url> | <consulta>]\n' >&2
+	printf 'uso: web.sh [--add <nombre> <url> | <url, enlace o consulta>]\n' >&2
 }
 
 load_links() {
@@ -78,6 +78,22 @@ add_link() {
 	printf 'añadida: %s -> %s\n' "$name" "$url"
 }
 
+is_url() {
+	local value="$1"
+	local domain_pattern='^([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}(:[0-9]+)?([/?#][^[:space:]]*)?$'
+	local ip_pattern='^([0-9]{1,3}\.){3}[0-9]{1,3}(:[0-9]+)?([/?#][^[:space:]]*)?$'
+	local localhost_pattern='^localhost(:[0-9]+)?([/?#][^[:space:]]*)?$'
+
+	[[ "$value" =~ ^[Hh][Tt][Tt][Pp][Ss]?://[^[:space:]]+$ ]] && return 0
+	[[ "$value" =~ ^$domain_pattern$ ]] && return 0
+	[[ "$value" =~ ^$ip_pattern$ ]] && return 0
+	[[ "$value" =~ ^$localhost_pattern$ ]]
+}
+
+open_url() {
+	setsid -f xdg-open "$1" >/dev/null 2>&1
+}
+
 load_links
 
 if [[ "${1-}" == --add ]]; then
@@ -107,10 +123,32 @@ if [[ $# -ne 1 ]]; then
 fi
 
 choice="$1"
+choice=${choice#"${choice%%[![:space:]]*}"}
+choice=${choice%"${choice##*[![:space:]]}"}
 
-if [[ -n "${LINKS[$choice]}" ]]; then
-	IFS='|' read -r url icon <<< "${LINKS[$choice]}"
-	setsid -f xdg-open "$url" >/dev/null 2>&1
+[[ -n "$choice" ]] || exit 0
+
+entry=""
+for key in "${!LINKS[@]}"; do
+	if [[ "$key" == "$choice" ]]; then
+		entry="${LINKS[$key]}"
+		break
+	fi
+done
+
+if [[ -n "$entry" ]]; then
+	IFS='|' read -r url icon <<< "$entry"
+	open_url "$url"
+	exit 0
+fi
+
+if is_url "$choice"; then
+	if [[ "$choice" =~ ^[Hh][Tt][Tt][Pp][Ss]?:// ]]; then
+		url="$choice"
+	else
+		url="https://$choice"
+	fi
+	open_url "$url"
 	exit 0
 fi
 
