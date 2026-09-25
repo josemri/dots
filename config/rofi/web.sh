@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 ROFI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DATA="$ROFI_DIR/web_custom"
+SCRIPT="$ROFI_DIR/web.sh"
+WEB_PREFIX=":'web"$'\t'
 
 declare -A LINKS=(
 	["claude"]="https://claude.ai/new|icons/claude.ico"
@@ -11,24 +12,98 @@ declare -A LINKS=(
 	["github"]="https://github.com|icons/github.ico"
 	["youtube"]="https://youtube.com|icons/youtube.ico"
 	["telegram"]="https://web.telegram.org/a/|icons/telegram.ico"
+	["outlook"]="https://outlook.office.com|icons/outlook.office.com.ico"
+	["matlab"]="https://matlab.mathworks.com/|icons/matlab.mathworks.com.ico"
+	["colab"]="https://colab.research.google.com/?authuser=1|icons/colab.research.google.com.ico"
 )
 
-if [[ -z "$1" ]]; then
+usage() {
+	printf 'uso: web.sh [--add <nombre> <url> | <consulta>]\n' >&2
+}
+
+load_links() {
+	local line name url icon value
+
+	while IFS= read -r line; do
+		[[ "$line" == "$WEB_PREFIX"*\' ]] || continue
+		line=${line#"$WEB_PREFIX"}
+		line=${line%\'}
+		IFS=$'\t' read -r name url icon <<< "$line"
+		[[ -n "$name" && -n "$url" ]] || continue
+		value="$url"
+		[[ -n "$icon" ]] && value="$value|icons/$icon"
+		LINKS["$name"]="$value"
+	done < "$SCRIPT"
+}
+
+add_link() {
+	local name="$1"
+	local url="$2"
+	local domain iconfile icon entry
+
+	if [[ -z "$name" || -z "$url" || "$name" == *"'"* || "$name" == *$'\t'* || "$name" == *$'\n'* || "$name" == *$'\r'* || "$url" == *"'"* || "$url" == *$'\t'* || "$url" == *$'\n'* || "$url" == *$'\r'* || "$url" == *'|'* ]]; then
+		printf 'nombre o url no válidos: no pueden contener comillas simples, tabuladores, saltos de línea ni | en la url\n' >&2
+		return 1
+	fi
+
+	[[ "$url" =~ ^https?:// ]] || url="https://$url"
+	domain=$(printf '%s' "$url" | sed -E 's|https?://([^/?#]+).*|\1|')
+	iconfile=$(printf '%s' "$domain" | tr -cd '[:alnum:].-')
+	icon=""
+
+	if [[ -d "$ROFI_DIR/icons" && -x /usr/bin/curl ]]; then
+		if curl -fsSL --max-time 10 "https://icons.duckduckgo.com/ip3/$domain.ico" -o "$ROFI_DIR/icons/$iconfile.ico"; then
+			icon="$iconfile.ico"
+		else
+			rm -f -- "$ROFI_DIR/icons/$iconfile.ico"
+			if curl -fsSL --max-time 10 "https://www.google.com/s2/favicons?domain=$domain&sz=128" -o "$ROFI_DIR/icons/$iconfile.png"; then
+				icon="$iconfile.png"
+			else
+				rm -f -- "$ROFI_DIR/icons/$iconfile.png"
+			fi
+		fi
+	fi
+
+	[[ -n "$icon" ]] && icon="icons/$icon"
+	entry=$(printf ":'web\t%s\t%s\t%s'" "$name" "$url" "$icon")
+	bash -n -c "$entry" || {
+		printf 'no se pudo generar una entrada válida\n' >&2
+		return 1
+	}
+	printf '%s\n' "$entry" >> "$SCRIPT" || {
+		printf 'no se pudo actualizar %s\n' "$SCRIPT" >&2
+		return 1
+	}
+
+	printf 'añadida: %s -> %s\n' "$name" "$url"
+}
+
+load_links
+
+if [[ "${1-}" == --add ]]; then
+	if [[ $# -ne 3 ]]; then
+		usage
+		exit 1
+	fi
+	add_link "$2" "$3"
+	exit $?
+fi
+
+if [[ $# -eq 0 ]]; then
 	for key in "${!LINKS[@]}"; do
 		IFS='|' read -r url icon <<< "${LINKS[$key]}"
-		printf "%s\0icon\x1f%s\n" "$key" "$icon"
+		if [[ -n "$icon" && -f "$ROFI_DIR/$icon" ]]; then
+			printf "%s\0icon\x1f%s\n" "$key" "$icon"
+		else
+			printf "%s\n" "$key"
+		fi
 	done
-	if [[ -f "$DATA" ]]; then
-		while IFS=$'\t' read -r name url icon; do
-			[[ -n "$name" ]] || continue
-			if [[ -n "$icon" && -f "$ROFI_DIR/icons/$icon" ]]; then
-				printf "%s\0icon\x1f%s\n" "$name" "icons/$icon"
-			else
-				printf "%s\n" "$name"
-			fi
-		done < "$DATA"
-	fi
 	exit 0
+fi
+
+if [[ $# -ne 1 ]]; then
+	usage
+	exit 1
 fi
 
 choice="$1"
@@ -39,15 +114,6 @@ if [[ -n "${LINKS[$choice]}" ]]; then
 	exit 0
 fi
 
-if [[ -f "$DATA" ]]; then
-	while IFS=$'\t' read -r name url icon; do
-		if [[ "$name" == "$choice" ]]; then
-			setsid -f xdg-open "$url" >/dev/null 2>&1
-			exit 0
-		fi
-	done < "$DATA"
-fi
-
-query=$(printf "%s" "$choice" | sed 's/ /+/g')
+query=$(printf '%s' "$choice" | sed 's/ /+/g')
 setsid -f firefox "https://duckduckgo.com/?q=$query" >/dev/null 2>&1
 exit 0
