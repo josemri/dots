@@ -71,55 +71,52 @@ sudo apt install -y linux-headers-$(uname -r)
 log "base packages..."
 
 sudo apt install -y \
+	 xorg \
     i3 \
     i3blocks \
-    git \
-    kitty \
+	 i3lock \ 
+    git \ # para este punto ya deberia tener git instalado
+    kitty \ # term 
     picom \
-    xournalpp \
+    xournalpp \ # notas a mano
     dunst \
     rofi \
-    keepass2 \
-    libreoffice \
-    firefox-esr \
-    zathura \
+    keepass2 \ # gestor contraseñas
+    libreoffice \ # the better office
+    firefox-esr \ # TODO change for librewolf
+    zathura \ # the better pdf viewer
     nitrogen \
     xfce4-screenshooter \
     brightnessctl \
     xclip \
-    i3lock \
     network-manager \
     unzip \
     zip \
     curl \
-    wget \
+    wget \ 
     dkms \
-    build-essential \
-    pipewire \
-    wireplumber \
-    pipewire-pulse \
-    bluez \
-    ripgrep \
-    fzf \
-    xorg \
-    zsh \
-    trash-cli \
-    ffmpeg \
-    ncdu \
+    build-essential \ #kernel necesario para implementar fixes
+    pipewire \ #audio stuff
+    wireplumber \ #audo stuff 
+    pipewire-pulse \ #audio stuff 
+    bluez \ #cli bth
+    ripgrep \ #dependencia nvim
+    fzf \ #dependencia nvim
+    zsh \ #TODO rm this, with bash i'm ok
+    trash-cli \ #alias rm
+    ffmpeg \ #record screen and show cam
+    ncdu \ #alias disk
     fuse \
-    fastfetch \
     libnotify-bin \
-    ncal \
-    libspa-0.2-bluetooth \
-    jq \
+    ncal \ #dependencia de mi i3bar
+    libspa-0.2-bluetooth \ #bth lib
+    jq \ #json formatting
     bc \
     tlp
 
 success "base packages installed"
 
-# --------------------------------------------------
 # NVIM NIGHTLY
-# --------------------------------------------------
 install_neovim_nightly() {
     log "Neovim nightly..."
 
@@ -133,9 +130,7 @@ install_neovim_nightly() {
     success "Neovim nightly installed"
 }
 
-# --------------------------------------------------
 # ASUS WMI SCREENPAD
-# --------------------------------------------------
 install_asus_wmi_screenpad() {
     log "asus-wmi-screenpad..."
 
@@ -410,20 +405,20 @@ run_hardware_fixes() {
 # MAIN
 # --------------------------------------------------
 
-#install_neovim_nightly
-#install_asus_wmi_screenpad
-#configure_networkmanager
+install_neovim_nightly
+install_asus_wmi_screenpad
+configure_networkmanager
 configure_tailscale_boot
-#configure_pipewire
-#configure_bluetooth
-#install_dotfiles
-#setup_zsh
-#set_default_shell
-#configure_power_button
-#configure_grub
-#asus_pen
-#enable_tlp
-#install_gpu_switch
-#run_hardware_fixes
+configure_pipewire
+configure_bluetooth
+install_dotfiles
+setup_zsh
+set_default_shell
+configure_power_button
+configure_grub
+asus_pen
+enable_tlp
+install_gpu_switch
+run_hardware_fixes
 
 success "completed correctly"
