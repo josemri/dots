@@ -1,222 +1,366 @@
 #!/usr/bin/env bash
-
+#
+# instalador de mis dotfiles (debian)
+#
+# cada paso mira primero como esta el sistema y solo toca lo que no coincide
+# con lo que dejaria una instalacion desde cero. si ya esta todo igual, el
+# script no modifica nada.
+#
+# no guarda estado en ningun sitio: cada paso comprueba el sistema real
+# (ficheros, symlinks, unidades, dpkg, dkms, modulos compilados) y solo toca
+# lo que no cuadra. --force se salta esas comparaciones.
+#
+# uso:
+#   ./install.sh                    solo lo que falte o este desactualizado
+#   ./install.sh --no-upgrade       no actualiza el resto del sistema
+#   ./install.sh --no-hardware      no ejecuta los fixes de hardware
+#   ./install.sh --force            re-aplica nvim, dkms y los fixes de hardware
+#   ./install.sh --only nvim,dkms   ejecuta solo los pasos indicados
+#
 set -euo pipefail
 
-# -------- COLORS --------
-GREEN="\e[32m"
-RED="\e[31m"
-YELLOW="\e[33m"
-BLUE="\e[34m"
-RESET="\e[0m"
+# ------------------------------------------------------------------ ajustes --
+REPO_URL="${REPO_URL:-https://github.com/josemri/dots.git}"
+REPO_DIR="${REPO_DIR:-$HOME/dots}"
+APT_MAX_AGE_DAYS="${APT_MAX_AGE_DAYS:-7}" # cada cuanto se refrescan los indices de apt
 
-log() {
-    echo -e "${BLUE}[INFO]${RESET} $1"
-}
+FORCE=0
+WITH_UPGRADE=1
+WITH_HARDWARE=1
+ONLY=()
+APPLIED=()
+DONE=()
+CHANGES=0
 
-success() {
-    echo -e "${GREEN}[OK]${RESET} $1"
-}
-
-warn() {
-    echo -e "${YELLOW}[WARN]${RESET} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${RESET} $1"
-    exit 1
-}
-
-trap 'error "error at line: $LINENO"' ERR
-
-# -------- USER CHECK --------
-if [[ $EUID -eq 0 ]]; then
-    echo "do not run as root, run as your user"
-    exit 1
+# -------------------------------------------------------------------- salida --
+if [[ -t 1 ]]; then
+    C_INFO=$'\e[34m' C_OK=$'\e[32m' C_WARN=$'\e[33m'
+    C_ERR=$'\e[31m' C_QUIET=$'\e[2m' C_OFF=$'\e[0m'
+else
+    C_INFO= C_OK= C_WARN= C_ERR= C_QUIET= C_OFF=
 fi
 
-if ! sudo -v 2>/dev/null; then
-    echo "sudo access required"
-    exit 1
-fi
+log() { printf '%s[ ..]%s %s\n' "$C_INFO" "$C_OFF" "$1"; }
+ok() { printf '%s[ ok]%s %s\n' "$C_OK" "$C_OFF" "$1"; }
+skip() { printf '%s[skip]%s %s\n' "$C_QUIET" "$C_OFF" "$1"; }
+warn() { printf '%s[warn]%s %s\n' "$C_WARN" "$C_OFF" "$1" >&2; }
+die() { printf '%s[fail]%s %s\n' "$C_ERR" "$C_OFF" "$1" >&2; exit 1; }
 
-show_banner() {
-   local colors=(196 202 226 46 51 21 201)
-   local i=0
+mark() { CHANGES=$((CHANGES + 1)); }        # el paso en curso ha tocado algo
+changed_since() { ((CHANGES > $1)); }      # ¿algo cambio desde la marca $1?
+trap 'die "linea $LINENO: $BASH_COMMAND"' ERR
 
-   while IFS= read -r line; do
-       color=${colors[$((i % ${#colors[@]}))]}
-       echo -e "\e[38;5;${color}m${line}\e[0m"
-       i=$((i+1))
-   done << "EOF"
-       ___           _        _ _       _     
-      / (_)         | |      | | |     | |    
-     / / _ _ __  ___| |_ __ _| | |  ___| |__  
-    / / | | '_ \/ __| __/ _` | | | / __| '_ \ 
- _ / /  | | | | \__ \ || (_| | | |_\__ \ | | |
-(_)_/   |_|_| |_|___/\__\__,_|_|_(_)___/_| |_|
-                                   by josemri
-                                               
+# todo lo temporal vive aqui y se borra al salir, tambien con Ctrl+C
+WORKDIR=$(mktemp -d)
+trap 'rm -rf "$WORKDIR"' EXIT
+trap 'exit 130' INT TERM
+tmpfile() { mktemp -p "$WORKDIR"; }
+
+# ------------------------------------------------------------------ opciones --
+usage() {
+    cat <<'EOF'
+uso: install.sh [opciones]
+
+  --no-upgrade      no actualiza el resto del sistema (apt upgrade)
+  --no-hardware     no ejecuta los fixes de hardware (compilan modulos)
+  --force           re-aplica nvim, dkms y los fixes aunque ya esten hechos
+  --only <pasos>    solo esos pasos, separados por coma (prefijo: nvim,dkms)
+  -h, --help        esto
 EOF
 }
 
-show_banner
-log "updating system..."
-sudo apt update && sudo apt upgrade -y
-success "system updated"
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-upgrade) WITH_UPGRADE=0 ;;
+        --no-hardware) WITH_HARDWARE=0 ;;
+        --force) FORCE=1 ;;
+        --only) shift; IFS=, read -r -a ONLY <<<"$1" ;;
+        -h | --help) usage; exit 0 ;;
+        *) usage >&2; die "opcion desconocida: $1" ;;
+    esac
+    shift
+done
 
-# -------- BASE --------
-
-sudo apt install -y linux-headers-$(uname -r)
-
-log "base packages..."
-
-sudo apt install -y \
-	 xorg \
-    i3 \
-    i3blocks \
-	 i3lock \ 
-    git \ # para este punto ya deberia tener git instalado
-    kitty \ # term 
-    picom \
-    xournalpp \ # notas a mano
-    dunst \
-    rofi \
-    keepass2 \ # gestor contraseñas
-    libreoffice \ # the better office
-    firefox-esr \ # TODO change for librewolf
-    zathura \ # the better pdf viewer
-    nitrogen \
-    xfce4-screenshooter \
-    brightnessctl \
-    xclip \
-    network-manager \
-    unzip \
-    zip \
-    curl \
-    wget \ 
-    dkms \
-    build-essential \ #kernel necesario para implementar fixes
-    pipewire \ #audio stuff
-    wireplumber \ #audo stuff 
-    pipewire-pulse \ #audio stuff 
-    bluez \ #cli bth
-    ripgrep \ #dependencia nvim
-    fzf \ #dependencia nvim
-    zsh \ #TODO rm this, with bash i'm ok
-    trash-cli \ #alias rm
-    ffmpeg \ #record screen and show cam
-    ncdu \ #alias disk
-    fuse \
-    libnotify-bin \
-    ncal \ #dependencia de mi i3bar
-    libspa-0.2-bluetooth \ #bth lib
-    jq \ #json formatting
-    bc \
-    tlp
-
-success "base packages installed"
-
-# NVIM NIGHTLY
-install_neovim_nightly() {
-    log "Neovim nightly..."
-
-    cd /tmp
-    curl -fsSL -o nvim.tar.gz https://github.com/neovim/neovim/releases/download/nightly/nvim-linux-x86_64.tar.gz
-    sudo rm -rf /usr/local/nvim-linux-x86_64 /usr/local/bin/nvim
-    sudo tar -xzf nvim.tar.gz -C /usr/local
-    sudo ln -sf /usr/local/nvim-linux-x86_64/bin/nvim /usr/local/bin/nvim
-    rm -f nvim.tar.gz
-
-    success "Neovim nightly installed"
+# -------------------------------------------------------------- primitivas --
+# ensure_file <ruta> [modo]   (contenido por stdin)
+#   escribe el contenido solo si el fichero no existe o difiere.
+ensure_file() {
+    local dest=$1 mode=${2:-644} tmp
+    tmp=$(tmpfile)
+    cat >"$tmp"
+    if sudo cmp -s "$tmp" "$dest"; then return 0; fi
+    sudo install -D -m "$mode" "$tmp" "$dest"
+    mark
+    ok "$dest"
 }
 
-# ASUS WMI SCREENPAD
-install_asus_wmi_screenpad() {
-    log "asus-wmi-screenpad..."
+# ensure_link <origen> <destino>
+#   (re)crea el symlink solo si no apunta ya al origen. si el origen no existe
+#   avisa en vez de dejar un symlink roto.
+ensure_link() {
+    local src=$1 dst=$2
+    if [[ ! -e $src ]]; then warn "$src no existe: no se enlaza $dst"; return 0; fi
+    if [[ -L $dst && $(readlink -- "$dst") == "$src" ]]; then return 0; fi
+    if [[ -e $dst || -L $dst ]]; then sudo rm -rf -- "$dst"; fi
+    ln -s -- "$src" "$dst"
+    mark
+    ok "$dst -> $src"
+}
 
-    MODULE="asus-wmi"
-    VERSION="1.0"
-    SRC_DIR="/usr/src/${MODULE}-${VERSION}"
-    DKMS_TREE="/var/lib/dkms/${MODULE}"
+# set_conf <fichero> <clave> <valor> [cabecera_de_seccion]
+#   deja la clave con ese valor exacto: sustituye la entrada activa (y colapsa
+#   duplicados) y si no existia la inserta tras la cabecera de seccion indicada
+#   (p.ej. "[Login]"), o al final del fichero. los comentarios se respetan y no
+#   se toca nada si ya coincide.
+set_conf() {
+    local file=$1 key=$2 value=$3 section=${4:-} new
+    new=$(tmpfile)
+    sudo awk -v key="$key" -v value="$value" -v section="$section" '
+        { line[NR] = $0 }
+        END {
+            for (i = 1; i <= NR; i++) {
+                t = line[i]
+                sub(/^[ \t]+/, "", t)
+                if (t ~ "^" key "=") {
+                    if (!done) { out[++n] = key "=" value; done = 1 }
+                } else {
+                    out[++n] = line[i]
+                    if (section != "" && t == section) insert = n + 1
+                }
+            }
+            if (!done) {
+                if (insert > 0) {
+                    for (i = n; i >= insert; i--) out[i + 1] = out[i]
+                    out[insert] = key "=" value
+                    n++
+                } else {
+                    out[++n] = key "=" value
+                }
+            }
+            for (i = 1; i <= n; i++) print out[i]
+        }
+    ' "$file" >"$new"
+    if sudo cmp -s "$new" "$file"; then return 0; fi
+    sudo install -m 644 "$new" "$file"
+    mark
+    ok "$(basename "$file"): $key=$value"
+}
 
-    # Reset COMPLETO e idempotente de una instalacion previa.
-    # dkms vive en /usr/sbin (fuera del PATH del usuario): siempre via sudo.
-    # No se confia en `dkms status` (puede quedar inconsistente tras un fallo
-    # y no listar el modulo aunque el arbol exista): se fuerza la limpieza.
-    log "Removing any previous ${MODULE} install (DKMS + source)..."
-    sudo dkms remove -m "$MODULE" -v "$VERSION" --all 2>/dev/null || true
-    sudo rm -rf "$DKMS_TREE"
-    sudo rm -rf "$SRC_DIR"
+# ensure_service [user] <unidad>...
+#   habilita y arranca la unidad solo si falta algo. is-enabled tambien dice
+#   "masked", en cuyo caso no hay nada que hacer: avisar.
+ensure_service() {
+    local scope=() unit state
+    if [[ ${1:-} == user ]]; then scope=(--user); shift; fi
+    for unit in "$@"; do
+        state=$(systemctl "${scope[@]}" is-enabled "$unit" 2>/dev/null || true)
+        case $state in
+            masked)
+                warn "$unit esta masked: sudo systemctl unmask $unit"
+                continue
+                ;;
+            enabled | enabled-runtime | static | alias | indirect) ;; # ya habilitada
+            *)
+                if systemctl "${scope[@]}" enable "$unit"; then mark; else warn "no se pudo habilitar $unit"; fi
+                ;;
+        esac
+        if ! systemctl "${scope[@]}" is-active --quiet "$unit" 2>/dev/null; then
+            if systemctl "${scope[@]}" start "$unit"; then mark; else warn "no se pudo arrancar $unit"; fi
+        fi
+    done
+}
 
-    WORK_DIR=$(mktemp -d)
-    cd "$WORK_DIR"
+# apt: solo refresca los indices si estan viejos y solo instala lo que falta o
+# esta por debajo de la version candidata.
+apt_lists_stale() {
+    local newest=0 f t
+    for f in /var/lib/apt/lists/*_InRelease; do
+        [[ -e $f ]] || continue
+        t=$(stat -c %Y -- "$f")
+        if ((t > newest)); then newest=$t; fi
+    done
+    ((newest == 0)) && return 0
+    ((($(date +%s) - newest) / 86400 >= APT_MAX_AGE_DAYS))
+}
+apt_refresh() {
+    if apt_lists_stale; then
+        log "apt: refreshing indices"
+        sudo apt-get update -qq
+        mark
+    fi
+}
+apt_candidate() { apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/{print $2}'; }
+apt_install() {
+    local pkg installed candidate todo=()
+    apt_refresh
+    for pkg in "$@"; do
+        installed=$(dpkg-query -W -f='${Version}' "$pkg" 2>/dev/null || true)
+        candidate=$(apt_candidate "$pkg")
+        if [[ -z $installed ]]; then
+            if [[ $candidate == "(none)" ]]; then
+                warn "$pkg no esta en los repos, se omite"
+            else
+                todo+=("$pkg")
+            fi
+        elif [[ $candidate != "(none)" ]] && dpkg --compare-versions "$installed" lt "$candidate"; then
+            todo+=("$pkg")
+        fi
+    done
+    if [[ ${#todo[@]} -eq 0 ]]; then
+        skip "paquetes al dia"
+        return 0
+    fi
+    log "instalando ${#todo[@]}: ${todo[*]}"
+    sudo apt-get install -y -qq "${todo[@]}"
+    mark
+}
 
-    wget -q https://github.com/Plippo/asus-wmi-screenpad/archive/master.zip -O master.zip
-    unzip -q master.zip
-    mv asus-wmi-screenpad-master/* .
-    rm -rf asus-wmi-screenpad-master master.zip
+# xorg + i3: escritorio y gestor de ventanas
+# i3lock: bloqueo de pantalla   xournalpp: notas a mano
+# keepass2: gestor de contrasenas   libreoffice: the better office
+# firefox-esr: TODO change for librewolf   zathura: the better pdf viewer
+# nitrogen: fondo de pantalla   xfce4-screenshooter: capturas
+# brightnessctl: brillo   xclip: portapapeles   network-manager: red
+# unzip/zip/curl/wget: utilidades basicas
+# dkms + build-essential: headers/kernel para compilar modulos
+# pipewire + wireplumber + pipewire-pulse: audio
+# bluez + libspa-0.2-bluetooth: bluetooth
+# ripgrep + fzf: dependencias de nvim
+# zsh: shell   trash-cli: alias rm   ffmpeg: grabar pantalla y camara
+# ncdu: uso de disco   fuse: montajes   libnotify-bin: notificaciones
+# ncal: dependencia de mi i3bar   jq: json   bc: calculos   tlp: bateria
+PACKAGES=(
+    xorg i3 i3blocks i3lock git kitty picom xournalpp dunst rofi keepass2
+    libreoffice firefox-esr zathura nitrogen xfce4-screenshooter brightnessctl
+    xclip network-manager unzip zip curl wget dkms build-essential pipewire
+    wireplumber pipewire-pulse bluez ripgrep fzf zsh trash-cli ffmpeg ncdu
+    fuse libnotify-bin ncal libspa-0.2-bluetooth jq bc tlp
+)
 
-    sh prepare-for-current-kernel.sh
+# ------------------------------------------------------------------- pasos ---
+step_upgrade_system() {
+    if ((WITH_UPGRADE == 0)); then skip "actualizacion del sistema (--no-upgrade)"; return 0; fi
+    apt_refresh
+    local sim n
+    if ! sim=$(apt-get -s -q -y upgrade 2>/dev/null); then
+        warn "no se pudo simular apt upgrade, se omite"
+        return 0
+    fi
+    n=$(awk '/upgraded,/{print $1; exit}' <<<"$sim")
+    if [[ ${n:-0} == 0 ]]; then
+        skip "sistema al dia"
+        return 0
+    fi
+    log "$n actualizaciones del sistema"
+    sudo apt-get upgrade -y -qq
+    mark
+}
 
-    sudo mkdir -p "$SRC_DIR"
-    sudo cp -r . "$SRC_DIR/"
-    cd /
-    rm -rf "$WORK_DIR"
+step_install_packages() {
+    apt_install "${PACKAGES[@]}"
 
-    sudo dkms add -m "$MODULE" -v "$VERSION" --force
-    sudo dkms build -m "$MODULE" -v "$VERSION"
-    sudo dkms install -m "$MODULE" -v "$VERSION" --force
+    # los headers pueden no estar en los repos activos; los fixes de kernel
+    # los necesitan, asi que se avisa en vez de reventar el script.
+    local hdr="linux-headers-$(uname -r)"
+    if [[ -d /lib/modules/$(uname -r)/build ]]; then
+        skip "linux-headers: ya instalados"
+    elif [[ $(apt_candidate "$hdr") == "(none)" ]]; then
+        warn "$hdr no esta en los repos (los fixes de hardware lo necesitan)"
+    else
+        apt_install "$hdr"
+    fi
+}
 
-    # Udev rule
-    sudo mkdir -p /etc/udev/rules.d
-    sudo tee /etc/udev/rules.d/99-asus.rules > /dev/null << 'EOF'
+# el commit de un nightly va en el propio binario: "+g<commit>". se compara
+# contra el tag nightly de upstream, asi que si el nightly es el mismo que ya
+# tengo no se descarga ni se instala nada.
+step_nvim_nightly() {
+    local remote current=""
+    remote=$(git ls-remote https://github.com/neovim/neovim.git refs/tags/nightly | cut -f1) ||
+        die "no se pudo consultar el nightly de neovim (sin red?)"
+
+    if command -v nvim >/dev/null; then
+        current=$(nvim --version | head -1 | sed 's/.*+g//')
+    fi
+    if [[ ${current:0:7} == "${remote:0:7}" ]]; then
+        skip "nvim nightly al dia (${current:0:9})"
+        return 0
+    fi
+
+    local arch=x86_64
+    [[ $(uname -m) == aarch64 ]] && arch=arm64
+    # OJO: en un solo "local" las palabras se expanden antes de asignar, asi
+    # que dir no puede referenciar a asset en la misma declaracion.
+    local asset=nvim-linux-$arch dir tarball
+    dir=/usr/local/$asset
+    tarball=$WORKDIR/nvim.tar.gz
+
+    log "nvim: hay nightly nuevo (${current:-sin nvim} -> ${remote:0:9})"
+    curl -fsSL --connect-timeout 15 -o "$tarball" \
+        "https://github.com/neovim/neovim/releases/download/nightly/$asset.tar.gz"
+    sudo rm -rf -- "$dir" /usr/local/bin/nvim
+    sudo tar -xzf "$tarball" -C /usr/local
+    sudo ln -sfn "$dir/bin/nvim" /usr/local/bin/nvim
+    mark
+}
+
+# DKMS asus-wmi-screenpad: remapea los botones extra del teclado. dkms status
+# ya dice si el modulo esta compilado e instalado, no hace falta mas.
+step_asus_wmi_screenpad() {
+    local module=asus-wmi version=1.0
+    local state src=/usr/src/$module-$version
+
+    # dkms vive en /usr/sbin (fuera del PATH del usuario) y su formato es
+    # "modulo/version, kernel, estado" (con barra, no coma)
+    state=$(sudo dkms status 2>/dev/null || true)
+    if ((FORCE == 0)) &&
+        awk -F, -v key="$module/$version" '
+            { gsub(/^ +| +$/, "", $1); gsub(/^ +| +$/, "", $NF) }
+            $1 == key && $NF == "installed" { found = 1 }
+            END { exit !found }
+        ' <<<"$state"; then
+        skip "$module/$version: ya instalado"
+    else
+        local work
+        work=$WORKDIR/asus-wmi
+        mkdir -p "$work"
+        log "$module/$version: compilando"
+        sudo dkms remove -m "$module" -v "$version" --all 2>/dev/null || true
+        sudo rm -rf /var/lib/dkms/$module "$src"
+        (
+            cd "$work"
+            wget -q https://github.com/Plippo/asus-wmi-screenpad/archive/master.zip -O master.zip
+            unzip -q master.zip
+            mv asus-wmi-screenpad-master/* . && rmdir asus-wmi-screenpad-master
+            sh prepare-for-current-kernel.sh
+        )
+        sudo rm -rf -- "$src"
+        sudo cp -r -- "$work" "$src"
+        sudo chown -R root:root "$src" && sudo chmod -R u+rwX,go+rX "$src"
+        sudo dkms add -m "$module" -v "$version" --force
+        sudo dkms build -m "$module" -v "$version"
+        sudo dkms install -m "$module" -v "$version" --force
+        mark
+    fi
+
+    # los leds del screenpad solo los root pueden cambiar el brillo
+    ensure_file /etc/udev/rules.d/99-asus.rules <<'EOF'
 # rules for asus_nb_wmi devices
 
 ACTION=="add", SUBSYSTEM=="leds", KERNEL=="asus::screenpad", RUN+="/bin/chmod a+w /sys/class/leds/%k/brightness"
 EOF
-
-    success "asus-wmi-screenpad installed"
+    sudo udevadm control --reload-rules 2>/dev/null || true
 }
 
-# PIPEWIRE CONFIG
-configure_pipewire() {
-    log "Configuring PipeWire..."
+step_networkmanager() { ensure_service NetworkManager; }
+step_bluetooth() { ensure_service bluetooth; }
+step_pipewire() { ensure_service user pipewire wireplumber; }
 
-    systemctl --user enable pipewire wireplumber || {
-        warn "Could not enable user services, they will start on next login."
-    }
+step_tailscale() {
+    command -v tailscale >/dev/null || { skip "tailscale no esta instalado"; return 0; }
 
-    success "PipeWire will start automatically on next login"
-}
-
-configure_bluetooth() {
-    log "configuring bluetooth..."
-
-    sudo systemctl enable bluetooth
-    sudo systemctl start bluetooth
-
-    success "bluetooth configured"
-}
-
-configure_networkmanager() {
-   log "configuring networkmanager..."
-
-   sudo systemctl enable NetworkManager
-   sudo systemctl start NetworkManager
-
-   success "networkmanager configured"
-}
-
-configure_tailscale_boot() {
-    log "Configuring tailscale socket activation..."
-
-    if ! command -v tailscale >/dev/null 2>&1; then
-        warn "tailscale not installed, skipping socket activation"
-        return 0
-    fi
-
-    # Socket: escucha en el control socket, arranca con sockets.target (~0s at boot)
-    sudo tee /etc/systemd/system/tailscaled.socket > /dev/null << 'EOF'
+    local before=$CHANGES
+    ensure_file /etc/systemd/system/tailscaled.socket <<'EOF'
 [Unit]
 Description=Tailscale Socket
 
@@ -227,90 +371,92 @@ SocketMode=0666
 [Install]
 WantedBy=sockets.target
 EOF
-
-    # Drop-in: servicio activado por socket (no arranca solo al boot)
-    sudo mkdir -p /etc/systemd/system/tailscaled.service.d
-    sudo tee /etc/systemd/system/tailscaled.service.d/20-socket-activate.conf > /dev/null << 'EOF'
+    ensure_file /etc/systemd/system/tailscaled.service.d/20-socket-activate.conf <<'EOF'
 [Unit]
 Wants=tailscaled.socket
 
 [Service]
 Sockets=tailscaled.socket
 EOF
+    if changed_since "$before"; then sudo systemctl daemon-reload; fi
 
-    # Deshabilitar y PARAR el servicio -> el daemon suelta el control socket.
-    # Si se deja corriendo, el socket ya esta en uso y arrancar la unit .socket
-    # falla con 'Job failed' (bind en uso).
-    sudo systemctl disable --now tailscaled.service 2>/dev/null || true
-    sudo systemctl enable --now tailscaled.socket
-
-    success "tailscale socket-activated (inicia al primer uso, 0s en boot)"
+    # sin --now a proposito: si el usuario esta conectado por tailscale,
+    # parar el daemon le cortaria la conexion (incluida esta sesion).
+    if systemctl is-enabled --quiet tailscaled.service 2>/dev/null; then
+        sudo systemctl disable tailscaled.service
+        mark
+    fi
+    ensure_service tailscaled.socket
 }
 
-install_dotfiles() {
-    log "Configuring my dotfiles!"
-
-    cd "$HOME"
-
-    # Clone repo if not exists
-    if [ ! -d dots ]; then
-        git clone https://github.com/josemri/dots.git
+step_dotfiles() {
+    if [[ ! -d $REPO_DIR ]]; then
+        log "clonando dotfiles en $REPO_DIR"
+        git clone "$REPO_URL" "$REPO_DIR"
+        mark
     fi
 
-    # Ensure .config exists
-    mkdir -p "$HOME/.config"
-
-    # Link files in HOME
+    local file
     for file in .p10k.zsh .zshrc; do
-        SRC="$HOME/dots/$file"
-        DEST="$HOME/$file"
-
-        [ -e "$DEST" ] || [ -L "$DEST" ] && rm -rf "$DEST"
-        ln -s "$SRC" "$DEST"
+        ensure_link "$REPO_DIR/$file" "$HOME/$file"
     done
 
-    # Link folders and files in .config
-    for item in bashrc dunst i3 i3blocks img2.jpg kitty nvim picom rofi xournalpp zathura user-dirs.dirs user-dirs.locale mimeapps.list; do
-        SRC="$HOME/dots/config/$item"
-        DEST="$HOME/.config/$item"
-
-        if [ -e "$DEST" ] || [ -L "$DEST" ]; then
-            rm -rf "$DEST"
-        fi
-
-        ln -s "$SRC" "$DEST"
+    # nitrogen se deja fuera a proposito: sus .cfg son estado, no config
+    local item
+    for item in bashrc dunst i3 i3blocks kitty mimeapps.list nvim picom rofi \
+        tmux user-dirs.dirs user-dirs.locale wp xournalpp zathura; do
+        ensure_link "$REPO_DIR/config/$item" "$HOME/.config/$item"
     done
-
-    success "Dotfiles linked!"
 }
 
-setup_zsh() {
-    log "Setting up zsh / oh-my-zsh / powerlevel10k..."
-
-    ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
-
-    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+step_zsh() {
+    local custom=$HOME/.oh-my-zsh/custom
+    if [[ ! -d $HOME/.oh-my-zsh ]]; then
         git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
+        mark
     fi
+    mkdir -p "$custom/themes" "$custom/plugins"
 
-    mkdir -p "$ZSH_CUSTOM/themes" "$ZSH_CUSTOM/plugins"
-
-    if [ ! -d "$ZSH_CUSTOM/themes/powerlevel10k" ]; then
-        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$ZSH_CUSTOM/themes/powerlevel10k"
-    fi
-
-    for p in zsh-autosuggestions zsh-syntax-highlighting zsh-history-substring-search; do
-        [ -d "$ZSH_CUSTOM/plugins/$p" ] || \
-            git clone --depth=1 "https://github.com/zsh-users/$p.git" "$ZSH_CUSTOM/plugins/$p"
+    # "owner/repo donde-va"; el nombre del repo es el ultimo segmento
+    local spec repo dir
+    for spec in "romkatv/powerlevel10k themes" \
+        "zsh-users/zsh-autosuggestions plugins" \
+        "zsh-users/zsh-syntax-highlighting plugins" \
+        "zsh-users/zsh-history-substring-search plugins"; do
+        read -r repo dir <<<"$spec"
+        if [[ ! -d $custom/$dir/${repo##*/} ]]; then
+            git clone --depth=1 "https://github.com/$repo.git" "$custom/$dir/${repo##*/}"
+            mark
+        fi
     done
-
-    success "zsh configured"
 }
 
-asus_pen() {
-   log "Configuring asus_pen conf"
-   sudo mkdir -p /etc/X11/xorg.conf.d
-   sudo tee "/etc/X11/xorg.conf.d/50-asus-pen.conf" > /dev/null << 'EOF'
+step_default_shell() {
+    local zsh
+    zsh=$(command -v zsh) || die "zsh no instalado"
+    if [[ $(getent passwd "$USER" | cut -d: -f7) == "$zsh" ]]; then return 0; fi
+    sudo chsh -s "$zsh" "$USER"
+    mark
+    ok "shell por defecto: $zsh (cierra la sesion para aplicarlo)"
+}
+
+step_power_button() {
+    local before=$CHANGES
+    set_conf /etc/systemd/logind.conf HandlePowerKey ignore "[Login]"
+    # reiniciar logind es disruptivo: solo si el fichero ha cambiado de verdad
+    if changed_since "$before"; then sudo systemctl restart systemd-logind; fi
+}
+
+step_grub() {
+    local before=$CHANGES
+    set_conf /etc/default/grub GRUB_TIMEOUT 0
+    set_conf /etc/default/grub GRUB_TIMEOUT_STYLE hidden
+    if changed_since "$before"; then sudo update-grub; fi
+}
+
+# el stylus se mapea solo a la pantalla secundaria: en las dos es inservible
+step_asus_pen() {
+    ensure_file /etc/X11/xorg.conf.d/50-asus-pen.conf <<'EOF'
 Section "InputClass"
 
       Identifier "ASUS SPEN"
@@ -322,103 +468,117 @@ EndSection
 EOF
 }
 
-set_default_shell() {
-    log "Setting zsh as default shell..."
+step_tlp() {
+    if systemctl is-active --quiet power-profiles-daemon; then
+        sudo systemctl disable --now power-profiles-daemon
+        mark
+    fi
+    ensure_service tlp
+}
 
-    ZSH_PATH=$(command -v zsh)
+# efectos que dejan los fixes: initrd parcheado, modulos externos para este
+# kernel, reglas de modprobe/udev y los parametros de grub.
+hardware_fixes_present() {
+    local kernel=$1 f
+    for f in /boot/fix-acpi-override.cpio \
+        "/lib/modules/$kernel/updates/drivers/misc/cardreader/rtsx_pci.ko" \
+        "/lib/modules/$kernel/updates/drivers/mmc/host/rtsx_pci_sdmmc.ko" \
+        /etc/modprobe.d/nvidia.conf \
+        /etc/systemd/system/nvidia-persistenced.service.d/10-fix-gpu.conf \
+        /etc/udev/rules.d/99-gpu-mx250.rules \
+        /etc/udev/rules.d/91-nvidia-persistenced.rules \
+        /etc/udev/rules.d/99-sd-card-reader.rules; do
+        [[ -f $f ]] || return 1
+    done
+    for f in acpi_osi=Linux pcie_aspm=off pcie_port_pm=off; do
+        grep -q -- "$f" /etc/default/grub || return 1
+    done
+}
 
-    if [ -z "$ZSH_PATH" ]; then
-        error "zsh not found"
+# fixes de hardware: tocan initrd, grub y modulos del kernel, asi que se
+# saltan mientras sus efectos sigan en su sitio (si editas los scripts, o con
+# --force, se vuelven a aplicar).
+step_hardware_fixes() {
+    if ((WITH_HARDWARE == 0)); then skip "fixes de hardware (--no-hardware)"; return 0; fi
+    local dir=$REPO_DIR/config/bashrc/fix kernel
+    [[ -d $dir ]] || die "no existe $dir"
+
+    kernel=$(uname -r)
+    if ((FORCE == 0)) && hardware_fixes_present "$kernel"; then
+        skip "fixes de hardware: ya aplicados en $kernel"
+        return 0
     fi
 
-    sudo chsh -s "$ZSH_PATH" "$USER"
-
-    success "Default shell changed to zsh"
+    log "fixes de hardware (compilan modulos, puede tardar)"
+    sudo bash "$dir/fix-acpi.sh"
+    sudo bash "$dir/fix-sd-reader.sh"
+    sudo bash "$dir/fix-gpu.sh"
+    mark
 }
 
-configure_power_button() {
-    log "Configuring power button behavior..."
+# -------------------------------------------------------------------- main ---
+STEPS=(
+    "system:step_upgrade_system"
+    "packages:step_install_packages"
+    "nvim:step_nvim_nightly"
+    "dkms:step_asus_wmi_screenpad"
+    "network:step_networkmanager"
+    "bluetooth:step_bluetooth"
+    "pipewire:step_pipewire"
+    "tailscale:step_tailscale"
+    "dotfiles:step_dotfiles"
+    "zsh:step_zsh"
+    "shell:step_default_shell"
+    "logind:step_power_button"
+    "grub:step_grub"
+    "pen:step_asus_pen"
+    "tlp:step_tlp"
+    "hardware-fixes:step_hardware_fixes"
+)
 
-    LOGIND_CONF="/etc/systemd/logind.conf"
+run_step() {
+    local name=$1 fn=$2 before=$CHANGES want match=0
+    for want in "${ONLY[@]}"; do
+        if [[ $name == "$want"* ]]; then match=1; fi
+    done
+    if [[ ${#ONLY[@]} -gt 0 && $match -eq 0 ]]; then return 0; fi
 
-    if sudo grep -q "^[#]*HandlePowerKey=" "$LOGIND_CONF"; then
-        sudo sed -i 's|^[#]*HandlePowerKey=.*|HandlePowerKey=ignore|' "$LOGIND_CONF"
-    else
-        echo "HandlePowerKey=ignore" | sudo tee -a "$LOGIND_CONF" > /dev/null
-    fi
-
-    sudo systemctl restart systemd-logind
-
-    success "Power button will no longer shut down the system"
+    log "$name"
+    "$fn"
+    if ((CHANGES > before)); then APPLIED+=("$name"); else DONE+=("$name"); fi
 }
 
-configure_grub() {
-    log "Configuring GRUB (no timeout)..."
-
-    GRUB_FILE="/etc/default/grub"
-
-    sudo sed -i 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=0/' "$GRUB_FILE"
-
-    if sudo grep -q "^GRUB_TIMEOUT_STYLE=" "$GRUB_FILE"; then
-        sudo sed -i 's/^GRUB_TIMEOUT_STYLE=.*/GRUB_TIMEOUT_STYLE=hidden/' "$GRUB_FILE"
-    else
-        echo "GRUB_TIMEOUT_STYLE=hidden" | sudo tee -a "$GRUB_FILE" > /dev/null
-    fi
-
-    sudo update-grub
-
-    success "GRUB configured to boot instantly"
+banner() {
+    [[ -t 1 ]] || return 0
+    local colors=(196 202 226 46 51 21 201) line i=0
+    while IFS= read -r line; do
+        printf '\e[38;5;%sm%s\e[0m\n' "${colors[i++ % ${#colors[@]}]}" "$line"
+    done <<'EOF'
+       ___           _        _ _       _
+      / (_)         | |      | | |     | |
+     / / _ _ __  ___| |_ __ _| | |  ___| |__
+    / / | | '_ \/ __| __/ _` | | | / __| '_ \
+ _ / /  | | | | \__ \ || (_| | | |_\__ \ | | |
+(_)_/   |_|_| |_|___/\__\__,_|_|_(_)___/_| |_|
+                                    by josemri
+EOF
 }
 
-enable_tlp() {
-    log "Enabling TLP (battery optimization)..."
+main() {
+    if [[ $EUID -eq 0 ]]; then die "no lo ejecutes como root, ejecuta con tu usuario"; fi
+    sudo -v || die "hace falta acceso a sudo"
 
-    sudo systemctl disable --now power-profiles-daemon 2>/dev/null || true
-    sudo systemctl enable --now tlp
+    banner
+    local step name fn
+    for step in "${STEPS[@]}"; do
+        IFS=: read -r name fn <<<"$step"
+        run_step "$name" "$fn"
+    done
 
-    success "TLP active"
+    echo
+    log "resumen: ${#APPLIED[@]} aplicados, ${#DONE[@]} ya estaban"
+    if [[ ${#APPLIED[@]} -gt 0 ]]; then printf '   aplicados:  %s\n' "${APPLIED[*]}"; fi
+    if [[ ${#DONE[@]} -gt 0 ]]; then printf '   sin cambios: %s\n' "${DONE[*]}"; fi
 }
 
-install_gpu_switch() {
-    log "Installing gpu-switch command..."
-
-    mkdir -p "$HOME/.local/bin"
-    ln -sf "$HOME/dots/config/bashrc/gpu-switch.sh" "$HOME/.local/bin/gpu-switch"
-
-    success "gpu-switch available as 'gpu-switch'"
-}
-
-run_hardware_fixes() {
-    log "Applying hardware fixes (ASUS UX481FL)..."
-
-    FIX_DIR="$HOME/dots/config/bashrc/fix"
-    [ -d "$FIX_DIR" ] || error "fix dir not found: $FIX_DIR"
-
-    sudo bash "$FIX_DIR/fix-acpi.sh"
-    sudo bash "$FIX_DIR/fix-sd-reader.sh"
-    sudo bash "$FIX_DIR/fix-gpu.sh"
-
-    success "Hardware fixes applied (REBOOT required)"
-}
-
-# --------------------------------------------------
-# MAIN
-# --------------------------------------------------
-
-install_neovim_nightly
-install_asus_wmi_screenpad
-configure_networkmanager
-configure_tailscale_boot
-configure_pipewire
-configure_bluetooth
-install_dotfiles
-setup_zsh
-set_default_shell
-configure_power_button
-configure_grub
-asus_pen
-enable_tlp
-install_gpu_switch
-run_hardware_fixes
-
-success "completed correctly"
+main "$@"
