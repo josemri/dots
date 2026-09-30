@@ -271,6 +271,38 @@ step_install_packages() {
     fi
 }
 
+# los lanzadores de libreoffice (writer, calc, impress...) sobran en el menu si
+# abres documentos con el start center: se esconden con Hidden=true, que es
+# justo lo que hace la opcion "no mostrar" del menu, pero por script. el start
+# center se deja visible porque es el lanzador que si se usa.
+#
+# OJO: estos ficheros son de /usr/share y los Dueene el paquete, asi que un
+# upgrade (o un --reinstall) los revierte y este paso hay que re-ejecutarlo.
+step_libreoffice_entries() {
+    local dir file before hidden=0 total=0
+    for dir in /usr/local/share/applications /usr/share/applications \
+        "${XDG_DATA_HOME:-$HOME/.local/share/applications}"; do
+        [[ -d $dir ]] || continue
+        for file in "$dir"/libreoffice-*.desktop; do
+            # sin -L: un symlink a un .desktop del sistema lo reescribiria
+            [[ -f $file && ! -L $file ]] || continue
+            [[ $(basename "$file") == libreoffice-startcenter.desktop ]] && continue
+            total=$((total + 1))
+            before=$CHANGES
+            set_conf "$file" Hidden true "[Desktop Entry]"
+            if changed_since "$before"; then hidden=$((hidden + 1)); fi
+        done
+    done
+
+    if ((total == 0)); then
+        skip "libreoffice: sin lanzadores que ocultar"
+    elif ((hidden == 0)); then
+        skip "libreoffice: $total lanzadores ya ocultos (menos el start center)"
+    else
+        log "libreoffice: ocultos $hidden de $total lanzadores (start center visible)"
+    fi
+}
+
 # el commit de un nightly va en el propio binario: "+g<commit>". se compara
 # contra el tag nightly de upstream, asi que si el nightly es el mismo que ya
 # tengo no se descarga ni se instala nada.
@@ -520,6 +552,7 @@ step_hardware_fixes() {
 STEPS=(
     "system:step_upgrade_system"
     "packages:step_install_packages"
+    "libreoffice:step_libreoffice_entries"
     "nvim:step_nvim_nightly"
     "dkms:step_asus_wmi_screenpad"
     "network:step_networkmanager"
