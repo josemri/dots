@@ -3,7 +3,7 @@ vim.o.relativenumber = true
 vim.o.tabstop = 3
 vim.o.shiftwidth = 3
 vim.g.mapleader = " "
-vim.o.wrap = false -- do not break lines to fit in screen
+vim.o.wrap = true -- do not break lines to fit in screen
 vim.o.scrolloff = 5
 vim.o.undofile = true --guardar undo entre saves
 
@@ -16,6 +16,9 @@ vim.pack.add ({
 		{ src = "https://github.com/hrsh7th/cmp-nvim-lsp" },
 		{ src = "https://github.com/hrsh7th/cmp-buffer" },
 		{ src = "https://github.com/barrettruth/live-server.nvim" },
+		{ src = "https://github.com/twhlynch/notebook.nvim" },
+		{ src = "https://github.com/3rd/image.nvim" },
+		{ src = "https://github.com/MeanderingProgrammer/render-markdown.nvim" },
 })
 
 dofile(vim.fn.stdpath("config") .. "/alpha.lua")
@@ -92,3 +95,6 @@ cmp.setup({
         { name = "buffer" },
     },
 })
+
+require("image").setup()
+require("notebook").setup()
