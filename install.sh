@@ -225,15 +225,15 @@ apt_install() {
 # dkms + build-essential: headers/kernel para compilar modulos
 # pipewire + wireplumber + pipewire-pulse: audio
 # bluez + libspa-0.2-bluetooth: bluetooth
-# ripgrep + fzf: dependencias de nvim
-# zsh: shell   trash-cli: alias rm   ffmpeg: grabar pantalla y camara
+# ripgrep + fzf: dependencias de nvim   zoxide: cd con memoria (lo usa .bashrc)
+# trash-cli: alias rm   ffmpeg: grabar pantalla y camara
 # ncdu: uso de disco   fuse: montajes   libnotify-bin: notificaciones
 # ncal: dependencia de mi i3bar   jq: json   bc: calculos   tlp: bateria
 PACKAGES=(
     xorg i3 i3blocks i3lock git kitty picom xournalpp dunst rofi keepass2
     libreoffice firefox-esr zathura nitrogen xfce4-screenshooter brightnessctl
     xclip network-manager unzip zip curl wget dkms build-essential pipewire
-    wireplumber pipewire-pulse bluez ripgrep fzf zsh trash-cli ffmpeg ncdu
+    wireplumber pipewire-pulse bluez ripgrep fzf zoxide trash-cli ffmpeg ncdu
     fuse libnotify-bin ncal libspa-0.2-bluetooth jq bc tlp
 )
 
@@ -428,10 +428,7 @@ step_dotfiles() {
         mark
     fi
 
-    local file
-    for file in .p10k.zsh .zshrc; do
-        ensure_link "$REPO_DIR/$file" "$HOME/$file"
-    done
+    ensure_link "$REPO_DIR/.bashrc" "$HOME/.bashrc"
 
     # nitrogen se deja fuera a proposito: sus .cfg son estado, no config
     local item
@@ -441,35 +438,13 @@ step_dotfiles() {
     done
 }
 
-step_zsh() {
-    local custom=$HOME/.oh-my-zsh/custom
-    if [[ ! -d $HOME/.oh-my-zsh ]]; then
-        git clone --depth=1 https://github.com/ohmyzsh/ohmyzsh.git "$HOME/.oh-my-zsh"
-        mark
-    fi
-    mkdir -p "$custom/themes" "$custom/plugins"
-
-    # "owner/repo donde-va"; el nombre del repo es el ultimo segmento
-    local spec repo dir
-    for spec in "romkatv/powerlevel10k themes" \
-        "zsh-users/zsh-autosuggestions plugins" \
-        "zsh-users/zsh-syntax-highlighting plugins" \
-        "zsh-users/zsh-history-substring-search plugins"; do
-        read -r repo dir <<<"$spec"
-        if [[ ! -d $custom/$dir/${repo##*/} ]]; then
-            git clone --depth=1 "https://github.com/$repo.git" "$custom/$dir/${repo##*/}"
-            mark
-        fi
-    done
-}
-
 step_default_shell() {
-    local zsh
-    zsh=$(command -v zsh) || die "zsh no instalado"
-    if [[ $(getent passwd "$USER" | cut -d: -f7) == "$zsh" ]]; then return 0; fi
-    sudo chsh -s "$zsh" "$USER"
+    local bash
+    bash=$(command -v bash) || die "bash no instalado"
+    if [[ $(getent passwd "$USER" | cut -d: -f7) == "$bash" ]]; then return 0; fi
+    sudo chsh -s "$bash" "$USER"
     mark
-    ok "shell por defecto: $zsh (cierra la sesion para aplicarlo)"
+    ok "shell por defecto: $bash (cierra la sesion para aplicarlo)"
 }
 
 step_power_button() {
@@ -560,7 +535,6 @@ STEPS=(
     "pipewire:step_pipewire"
     "tailscale:step_tailscale"
     "dotfiles:step_dotfiles"
-    "zsh:step_zsh"
     "shell:step_default_shell"
     "logind:step_power_button"
     "grub:step_grub"
