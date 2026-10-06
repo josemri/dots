@@ -15,12 +15,13 @@ vim.pack.add ({
 		{ src = "https://github.com/barrettruth/live-server.nvim" }, -- html preview
 		{ src = "https://github.com/twhlynch/notebook.nvim" }, -- jupyter notebook support
 		{ src = "https://github.com/3rd/image.nvim" }, -- image rendering
-		{ src = "https://github.com/MeanderingProgrammer/render-markdown.nvim" }, -- markdown formatting
 })
 
 dofile(vim.fn.stdpath("config") .. "/alpha.lua")
 require("catppuccin").setup({ transparent_background = true })
 vim.cmd("colorscheme catppuccin")
+require("image").setup()
+require("notebook").setup()
 
 local keymaps = {
 		{{'n','v','x'}, '<leader>y', '"+y'}, -- copiar al portapapeles del sistema
@@ -31,6 +32,7 @@ local keymaps = {
 		{{'n'}, '<leader>g', ':Telescope live_grep<CR>'}, -- buscar en archivos
 		{{'n'}, '<leader>b', ':Telescope buffers<CR>'}, -- listar buffers
 		{{'n'}, '<leader>r', ':Telescope oldfiles<CR>'}, -- listar recent
+		{{'n'}, '<leader>z', ':set wrap!<CR>'}, -- break lines to fit screen
 	   {{'v'}, 'J', ":m '>+1<CR>gv=gv"}, --mv lines
 		{{'v'}, 'K', ":m '<-2<CR>gv=gv"},
 		{{'n'}, 'n', 'nzzzv'}, --better next in lists
@@ -41,6 +43,3 @@ local keymaps = {
 for _, k in ipairs(keymaps) do
 	vim.keymap.set(k[1], k[2], k[3])
 end
-
-require("image").setup()
-require("notebook").setup()
