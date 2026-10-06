@@ -12,7 +12,7 @@ git_prompt() {
 	((${#o[@]})) && printf '\001\e[0m\002%s\001\e[0m\002' "${o[*]}"
 }
 PROMPT_DIRTRIM=2
-PS1=' \[\e[36m\]\w\[\e[0m\] $(git_prompt) \[\e[35m\]>\[\e[0m\] '
+PS1=' \[\e[36m\]\w\[\e[0m\] $(git_prompt)\[\e[35m\]>\[\e[0m\] '
 
 # Alias y funciones compartidos
 [[ -f ~/.config/bashrc/alias ]] && source ~/.config/bashrc/alias

@@ -16,6 +16,7 @@
 #   ./install.sh --no-hardware      no ejecuta los fixes de hardware
 #   ./install.sh --force            re-aplica nvim, dkms y los fixes de hardware
 #   ./install.sh --only nvim,dkms   ejecuta solo los pasos indicados
+#   ./install.sh --list             lista los pasos que acepta --only
 #
 set -euo pipefail
 
@@ -27,6 +28,7 @@ APT_MAX_AGE_DAYS="${APT_MAX_AGE_DAYS:-7}" # cada cuanto se refrescan los indices
 FORCE=0
 WITH_UPGRADE=1
 WITH_HARDWARE=1
+LIST=0
 ONLY=()
 APPLIED=()
 DONE=()
@@ -65,6 +67,7 @@ uso: install.sh [opciones]
   --no-hardware     no ejecuta los fixes de hardware (compilan modulos)
   --force           re-aplica nvim, dkms y los fixes aunque ya esten hechos
   --only <pasos>    solo esos pasos, separados por coma (prefijo: nvim,dkms)
+  --list            muestra todos los pasos que se pueden ejecutar con --only
   -h, --help        esto
 EOF
 }
@@ -74,6 +77,7 @@ while [[ $# -gt 0 ]]; do
         --no-upgrade) WITH_UPGRADE=0 ;;
         --no-hardware) WITH_HARDWARE=0 ;;
         --force) FORCE=1 ;;
+        --list) LIST=1 ;;
         --only) shift; IFS=, read -r -a ONLY <<<"$1" ;;
         -h | --help) usage; exit 0 ;;
         *) usage >&2; die "opcion desconocida: $1" ;;
@@ -271,35 +275,89 @@ step_install_packages() {
     fi
 }
 
-# los lanzadores de libreoffice (writer, calc, impress...) sobran en el menu si
-# abres documentos con el start center: se esconden con Hidden=true, que es
-# justo lo que hace la opcion "no mostrar" del menu, pero por script. el start
-# center se deja visible porque es el lanzador que si se usa.
+# lanzadores que sobran en el menu y que se ocultan si estan instalados (si
+# no lo estan, ni se miran). mismas reglas que los de libreoffice: solo los
+# ficheros normales, los symlinks se dejan como estan.
+HIDE_MENU_ENTRIES=(
+    kitty.desktop
+    display-im7.q16.desktop
+    debian-uxterm.desktop
+    debian-xterm.desktop
+    gcr-prompter.desktop
+    gcr-viewer.desktop
+    org.gnome.Zenity.desktop
+    org.pwmt.zathura.desktop
+    org.pwmt.zathura-pdf-poppler.desktop
+    picom.desktop
+    python3.13.desktop
+    rofi.desktop
+    rofi-theme-selector.desktop
+    texdoctk.desktop
+    xdg-desktop-portal-gtk.desktop
+    xfce4-screenshooter.desktop
+    xfreerdp3.desktop
+    xfreerdp3-file.desktop
+	 nitrogen.desktop
+)
+
+# oculta un .desktop con Hidden=true, que es justo lo que hace la opcion "no
+# mostrar" del menu, pero por script. si el fichero no existe (no esta
+# instalado) o es un symlink se salta esa entrada y se sigue con las demas.
+# sale con:
+#   0 = ha ocultado algo (habia cambio)
+#   1 = ya estaba oculto, no hay nada que tocar
+#   2 = no existe o no es un fichero normal: entrada skipeada
+hide_desktop() {
+    local file=$1 before=$CHANGES
+    # sin -L: un symlink a un .desktop del sistema lo reescribiria
+    [[ -f $file && ! -L $file ]] || return 2
+    set_conf "$file" Hidden true "[Desktop Entry]"
+    if changed_since "$before"; then return 0; fi
+    return 1
+}
+
+# todo lo que sobra en el menu se oculta de una vez: los lanzadores de
+# libreoffice (writer, calc, impress...) porque abro documentos con el start
+# center, y los de HIDE_MENU_ENTRIES porque no los uso por el menu. el start
+# center se deja visible porque es el lanzador que si se usa; lo que no este
+# instalado se salta y se sigue con el resto.
 #
 # OJO: estos ficheros son de /usr/share y los Dueene el paquete, asi que un
 # upgrade (o un --reinstall) los revierte y este paso hay que re-ejecutarlo.
-step_libreoffice_entries() {
-    local dir file before hidden=0 total=0
-    for dir in /usr/local/share/applications /usr/share/applications \
-        "${XDG_DATA_HOME:-$HOME/.local/share/applications}"; do
+step_hide_desktop() {
+    local dirs dir file name rc note
+    local cand=() total=0 hidden=0 startcenter=0
+    dirs=(/usr/local/share/applications /usr/share/applications
+        "${XDG_DATA_HOME:-$HOME/.local/share/applications}")
+
+    for dir in "${dirs[@]}"; do
         [[ -d $dir ]] || continue
-        for file in "$dir"/libreoffice-*.desktop; do
-            # sin -L: un symlink a un .desktop del sistema lo reescribiria
-            [[ -f $file && ! -L $file ]] || continue
-            [[ $(basename "$file") == libreoffice-startcenter.desktop ]] && continue
-            total=$((total + 1))
-            before=$CHANGES
-            set_conf "$file" Hidden true "[Desktop Entry]"
-            if changed_since "$before"; then hidden=$((hidden + 1)); fi
+
+        cand=("$dir"/libreoffice-*.desktop)
+        for name in "${HIDE_MENU_ENTRIES[@]}"; do cand+=("$dir/$name"); done
+
+        for file in "${cand[@]}"; do
+            if [[ ${file##*/} == libreoffice-startcenter.desktop ]]; then
+                startcenter=1
+                continue
+            fi
+            rc=0
+            hide_desktop "$file" || rc=$?
+            case $rc in
+                0) hidden=$((hidden + 1)) total=$((total + 1)) ;;
+                1) total=$((total + 1)) ;;
+            esac # 2: no instalado, se salta
         done
     done
 
+    note=""
+    if ((startcenter)); then note=" (start center visible)"; fi
     if ((total == 0)); then
-        skip "libreoffice: sin lanzadores que ocultar"
+        skip "menus: sin lanzadores que ocultar"
     elif ((hidden == 0)); then
-        skip "libreoffice: $total lanzadores ya ocultos (menos el start center)"
+        skip "menus: $total lanzadores ya ocultos$note"
     else
-        log "libreoffice: ocultos $hidden de $total lanzadores (start center visible)"
+        log "menus: ocultos $hidden de $total lanzadores$note"
     fi
 }
 
@@ -524,24 +582,41 @@ step_hardware_fixes() {
 }
 
 # -------------------------------------------------------------------- main ---
+# STEPS: nombre:funcion:descripcion. el nombre es lo que vale en --only (se
+# compara por prefijo) y lo que muestra --list. la descripcion no puede llevar
+# dos puntos porque es el separador.
 STEPS=(
-    "system:step_upgrade_system"
-    "packages:step_install_packages"
-    "libreoffice:step_libreoffice_entries"
-    "nvim:step_nvim_nightly"
-    "dkms:step_asus_wmi_screenpad"
-    "network:step_networkmanager"
-    "bluetooth:step_bluetooth"
-    "pipewire:step_pipewire"
-    "tailscale:step_tailscale"
-    "dotfiles:step_dotfiles"
-    "shell:step_default_shell"
-    "logind:step_power_button"
-    "grub:step_grub"
-    "pen:step_asus_pen"
-    "tlp:step_tlp"
-    "hardware-fixes:step_hardware_fixes"
+    "system:step_upgrade_system:apt upgrade del sistema"
+    "packages:step_install_packages:instala los paquetes y los headers del kernel"
+    "nvim:step_nvim_nightly:actualiza neovim al ultimo nightly"
+    "dkms:step_asus_wmi_screenpad:modulo asus-wmi-screenpad y regla udev de los leds"
+    "network:step_networkmanager:habilita y arranca NetworkManager"
+    "bluetooth:step_bluetooth:habilita y arranca bluetooth"
+    "pipewire:step_pipewire:habilita pipewire y wireplumber (usuario)"
+    "tailscale:step_tailscale:tailscaled por socket y sin autoarranque"
+    "dotfiles:step_dotfiles:symlinks de los dotfiles en ~"
+    "shell:step_default_shell:bash como shell por defecto"
+    "logind:step_power_button:el boton de encendido no apaga"
+    "grub:step_grub:grub sin espera (timeout 0)"
+    "pen:step_asus_pen:el stylus solo en la pantalla secundaria"
+    "tlp:step_tlp:tlp en vez de power-profiles-daemon"
+    "hardware-fixes:step_hardware_fixes:fixes de hardware (acpi, sd reader, gpu)"
+    "hide-desktop:step_hide_desktop:oculta lanzadores del menu (libreoffice, kitty, rofi...)"
 )
+
+# --list: los pasos con su descripcion, alineados. no toca nada ni pide sudo.
+list_steps() {
+    local step name fn desc max=0
+    for step in "${STEPS[@]}"; do
+        IFS=: read -r name fn desc <<<"$step"
+        if ((${#name} > max)); then max=${#name}; fi
+    done
+    printf 'pasos (./install.sh --only <nombre o prefijo>):\n\n'
+    for step in "${STEPS[@]}"; do
+        IFS=: read -r name fn desc <<<"$step"
+        printf '  %-*s  %s\n' "$max" "$name" "$desc"
+    done
+}
 
 run_step() {
     local name=$1 fn=$2 before=$CHANGES want match=0
@@ -572,13 +647,14 @@ EOF
 }
 
 main() {
+    if ((LIST)); then list_steps; return 0; fi
     if [[ $EUID -eq 0 ]]; then die "no lo ejecutes como root, ejecuta con tu usuario"; fi
     sudo -v || die "hace falta acceso a sudo"
 
     banner
-    local step name fn
+    local step name fn _
     for step in "${STEPS[@]}"; do
-        IFS=: read -r name fn <<<"$step"
+        IFS=: read -r name fn _ <<<"$step"
         run_step "$name" "$fn"
     done
 
