@@ -30,8 +30,5 @@ export HISTSIZE=10000
 export HISTFILESIZE=20000
 shopt -s histappend
 
-# zoxide
-eval "$(zoxide init bash)"
-
-# opencode
-export PATH="/home/josep/.opencode/bin:$PATH"
+eval "$(zoxide init bash)" # zoxide
+export PATH="/home/josep/.opencode/bin:$PATH" # opencode

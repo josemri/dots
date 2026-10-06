@@ -451,7 +451,7 @@ step_asus_wmi_screenpad() {
                 nf = split(head, f, ",")
                 gsub(/^ +| +$/, "", f[1])
                 gsub(/^ +| +$/, "", f[2])
-                if (st == "installed" &&
+                if (st ~ /^installed/ &&
                     (f[1] == module "/" version ||
                      (f[1] == module && nf > 2 && f[2] == version))) found = 1
             }
