@@ -61,25 +61,25 @@ tmpfile() { mktemp -p "$WORKDIR"; }
 # ------------------------------------------------------------------ opciones --
 usage() {
     cat <<'EOF'
-uso: install.sh [opciones]
+uso: install [opciones]
 
-  --no-upgrade      no actualiza el resto del sistema (apt upgrade)
-  --no-hardware     no ejecuta los fixes de hardware (compilan modulos)
-  --force           re-aplica nvim, dkms y los fixes aunque ya esten hechos
-  --only <pasos>    solo esos pasos, separados por coma (prefijo: nvim,dkms)
-  --list            muestra todos los pasos que se pueden ejecutar con --only
+  -u, --no-upgrade      no actualiza el resto del sistema (apt upgrade)
+  -n, --no-hardware no ejecuta los fixes de hardware (compilan modulos)
+  -f, --force           re-aplica nvim, dkms y los fixes aunque ya esten hechos
+  -o, --only <pasos>    solo esos pasos, separados por coma (prefijo: nvim,dkms)
+  -l, --list            muestra todos los pasos que se pueden ejecutar con --only
   -h, --help        esto
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --no-upgrade) WITH_UPGRADE=0 ;;
-        --no-hardware) WITH_HARDWARE=0 ;;
-        --force) FORCE=1 ;;
-        --list) LIST=1 ;;
-        --only) shift; IFS=, read -r -a ONLY <<<"$1" ;;
-        -h | --help) usage; exit 0 ;;
+        -u|--no-upgrade) WITH_UPGRADE=0 ;;
+        -n|--no-hardware) WITH_HARDWARE=0 ;;
+        -f|--force) FORCE=1 ;;
+        -l|--list) LIST=1 ;;
+        -o|--only) shift; IFS=, read -r -a ONLY <<<"$1" ;;
+        -h|--help) usage; exit 0 ;;
         *) usage >&2; die "opcion desconocida: $1" ;;
     esac
     shift
@@ -222,7 +222,7 @@ apt_install() {
 # xorg + i3: escritorio y gestor de ventanas
 # i3lock: bloqueo de pantalla   xournalpp: notas a mano
 # keepass2: gestor de contrasenas   libreoffice: the better office
-# firefox-esr: TODO change for librewolf   zathura: the better pdf viewer
+# librewolf: navegador (repo oficial, ver ensure_librewolf_repo)   zathura: the better pdf viewer
 # nitrogen: fondo de pantalla   xfce4-screenshooter: capturas
 # brightnessctl: brillo   xclip: portapapeles   network-manager: red
 # unzip/zip/curl/wget: utilidades basicas
@@ -235,11 +235,44 @@ apt_install() {
 # ncal: dependencia de mi i3bar   jq: json   bc: calculos   tlp: bateria
 PACKAGES=(
     xorg i3 i3blocks i3lock git kitty picom xournalpp dunst rofi keepass2
-    libreoffice firefox-esr zathura nitrogen xfce4-screenshooter brightnessctl
+    libreoffice librewolf zathura nitrogen xfce4-screenshooter brightnessctl
     xclip network-manager unzip zip curl wget dkms build-essential pipewire
     wireplumber pipewire-pulse bluez ripgrep fzf zoxide trash-cli ffmpeg ncdu
     fuse libnotify-bin ncal libspa-0.2-bluetooth jq bc tlp
 )
+
+# librewolf no esta en los repos de debian, asi que se anade el repo oficial:
+# una clave en /usr/share/keyrings y una linea en sources.list.d. si los dos
+# ficheros ya estan no se toca nada y no hace falta red; si falta alguno se
+# refrescan los indices para que apt vea el paquete. la clave se baja con
+# apt-helper porque va siempre con apt: cuando corre este paso (el primero
+# que pide paquetes) curl y wget aun no estarian instalados.
+ensure_librewolf_repo() {
+    local key=/usr/share/keyrings/librewolf.gpg
+    local src=/etc/apt/sources.list.d/librewolf.list
+    local before=$CHANGES tmp
+
+    if [[ ! -f $key ]]; then
+        log "librewolf: descargando la clave del repositorio"
+        tmp=$(tmpfile)
+        /usr/lib/apt/apt-helper download-file \
+            https://repo.librewolf.net/keyring.gpg "$tmp" >/dev/null ||
+            die "no se pudo descargar la clave de librewolf (sin red?)"
+        sudo install -D -m 644 "$tmp" "$key"
+        mark
+        ok "$key"
+    fi
+
+    ensure_file "$src" <<'EOF'
+deb [signed-by=/usr/share/keyrings/librewolf.gpg] https://repo.librewolf.net librewolf main
+EOF
+
+    # un repo recien anadido no esta en los indices de apt
+    if changed_since "$before"; then
+        log "apt: refreshing indices (repo librewolf)"
+        sudo apt-get update -qq
+    fi
+}
 
 # ------------------------------------------------------------------- pasos ---
 step_upgrade_system() {
@@ -261,6 +294,7 @@ step_upgrade_system() {
 }
 
 step_install_packages() {
+    ensure_librewolf_repo
     apt_install "${PACKAGES[@]}"
 
     # los headers pueden no estar en los repos activos; los fixes de kernel
@@ -400,13 +434,27 @@ step_asus_wmi_screenpad() {
     local module=asus-wmi version=1.0
     local state src=/usr/src/$module-$version
 
-    # dkms vive en /usr/sbin (fuera del PATH del usuario) y su formato es
-    # "modulo/version, kernel, estado" (con barra, no coma)
+    # dkms vive en /usr/sbin (fuera del PATH del usuario). su formato es
+    # "modulo/version, kernel, arch: estado" (o "modulo, version, kernel,
+    # arch: estado" en versiones antiguas), asi que el estado va tras los dos
+    # puntos y el modulo es el campo antes de la primera coma.
     state=$(sudo dkms status 2>/dev/null || true)
     if ((FORCE == 0)) &&
-        awk -F, -v key="$module/$version" '
-            { gsub(/^ +| +$/, "", $1); gsub(/^ +| +$/, "", $NF) }
-            $1 == key && $NF == "installed" { found = 1 }
+        awk -v module="$module" -v version="$version" '
+            {
+                n = index($0, ":")
+                if (!n) next
+                head = substr($0, 1, n - 1)
+                st = substr($0, n + 1)
+                gsub(/^ +| +$/, "", head)
+                gsub(/^ +| +$/, "", st)
+                nf = split(head, f, ",")
+                gsub(/^ +| +$/, "", f[1])
+                gsub(/^ +| +$/, "", f[2])
+                if (st == "installed" &&
+                    (f[1] == module "/" version ||
+                     (f[1] == module && nf > 2 && f[2] == version))) found = 1
+            }
             END { exit !found }
         ' <<<"$state"; then
         skip "$module/$version: ya instalado"
@@ -587,7 +635,7 @@ step_hardware_fixes() {
 # dos puntos porque es el separador.
 STEPS=(
     "system:step_upgrade_system:apt upgrade del sistema"
-    "packages:step_install_packages:instala los paquetes y los headers del kernel"
+    "packages:step_install_packages:instala los paquetes (y el repo de librewolf) y los headers del kernel"
     "nvim:step_nvim_nightly:actualiza neovim al ultimo nightly"
     "dkms:step_asus_wmi_screenpad:modulo asus-wmi-screenpad y regla udev de los leds"
     "network:step_networkmanager:habilita y arranca NetworkManager"

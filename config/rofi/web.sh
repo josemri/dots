@@ -153,5 +153,5 @@ if is_url "$choice"; then
 fi
 
 query=$(printf '%s' "$choice" | sed 's/ /+/g')
-setsid -f firefox "https://duckduckgo.com/?q=$query" >/dev/null 2>&1
+setsid -f librewolf "https://duckduckgo.com/?q=$query" >/dev/null 2>&1
 exit 0
