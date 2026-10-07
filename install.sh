@@ -223,7 +223,7 @@ apt_install() {
 # i3lock: bloqueo de pantalla   xournalpp: notas a mano
 # keepass2: gestor de contrasenas   libreoffice: the better office
 # librewolf: navegador (repo oficial, ver ensure_librewolf_repo)   zathura: the better pdf viewer
-# nitrogen: fondo de pantalla   xfce4-screenshooter: capturas
+# nitrogen: fondo de pantalla
 # brightnessctl: brillo   xclip: portapapeles   network-manager: red
 # unzip/zip/curl/wget: utilidades basicas
 # dkms + build-essential: headers/kernel para compilar modulos
@@ -232,21 +232,19 @@ apt_install() {
 # ripgrep + fzf: dependencias de nvim   zoxide: cd con memoria (lo usa .bashrc)
 # trash-cli: alias rm   ffmpeg: grabar pantalla y camara
 # ncdu: uso de disco   fuse: montajes   libnotify-bin: notificaciones
-# ncal: dependencia de mi i3bar   jq: json   bc: calculos   tlp: bateria
+# ncal: calendar jq: json   bc: calculos   tlp: bateria
+
+# CHECK remove dunst not required
+# CHECK rm fuse
 PACKAGES=(
     xorg i3 i3blocks i3lock git kitty picom xournalpp dunst rofi keepass2
-    libreoffice librewolf zathura nitrogen xfce4-screenshooter brightnessctl
+    libreoffice librewolf zathura nitrogen brightnessctl
     xclip network-manager unzip zip curl wget dkms build-essential pipewire
     wireplumber pipewire-pulse bluez ripgrep fzf zoxide trash-cli ffmpeg ncdu
     fuse libnotify-bin ncal libspa-0.2-bluetooth jq bc tlp
 )
 
-# librewolf no esta en los repos de debian, asi que se anade el repo oficial:
-# una clave en /usr/share/keyrings y una linea en sources.list.d. si los dos
-# ficheros ya estan no se toca nada y no hace falta red; si falta alguno se
-# refrescan los indices para que apt vea el paquete. la clave se baja con
-# apt-helper porque va siempre con apt: cuando corre este paso (el primero
-# que pide paquetes) curl y wget aun no estarian instalados.
+# librewolf no esta en los repos de debian, asi que se anade el repo oficial
 ensure_librewolf_repo() {
     local key=/usr/share/keyrings/librewolf.gpg
     local src=/etc/apt/sources.list.d/librewolf.list
@@ -328,7 +326,6 @@ HIDE_MENU_ENTRIES=(
     rofi-theme-selector.desktop
     texdoctk.desktop
     xdg-desktop-portal-gtk.desktop
-    xfce4-screenshooter.desktop
     xfreerdp3.desktop
     xfreerdp3-file.desktop
 	 nitrogen.desktop

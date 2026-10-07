@@ -76,9 +76,9 @@ bindsym Shift+XF86MonBrightnessDown exec --no-startup-id light -s sysfs/leds/asu
 bindsym XF86TouchpadToggle exec --no-startup-id ./.config/bashrc/toggleMouse.sh
 bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
 bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
-bindsym $mod+Shift+s exec --no-startup-id xfce4-screenshooter -r -s /dev/stdout | xclip -i -selection clipboard -t image/png
+bindsym $mod+Shift+s exec --no-startup-id ffmpeg -nostdin -loglevel quiet -f x11grab -draw_mouse 0 -select_region 1 -i :0.0 -frames:v 1 -c:v png -f image2pipe - | xclip -i -selection clipboard -t image/png
 bindsym XF86Launch1 exec --no-startup-id ./.config/rofi/rec.sh
-bindsym Print exec --no-startup-id xfce4-screenshooter -f
+bindsym Print exec --no-startup-id ffmpeg -nostdin -loglevel quiet -f x11grab -draw_mouse 0 -i :0.0 -frames:v 1 -c:v png -f image2pipe - | xclip -i -selection clipboard -t image/png
 bindsym XF86Launch6 exec --no-startup-id ./.config/bashrc/mvapp.sh
 bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
 bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
