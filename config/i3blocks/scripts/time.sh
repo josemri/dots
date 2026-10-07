@@ -1,9 +1,5 @@
 #!/bin/bash
 
-case $BLOCK_BUTTON in
-  1) notify-send "$(date +%D)" "$(ncal -M -b -h)" ;;
-esac
-
 echo "[$(date '+%H:%M')]"
 echo
 echo "#ffffff"
