@@ -13,26 +13,18 @@ if [[ $info == *MUTED* ]]; then
     left=$(( (BAR_LENGTH-4)/2 ))
     right=$(( BAR_LENGTH-4-left ))
     BAR=$(printf '%*sMUTE%*s' $left '' $right '')
+    echo "vol:[$BAR]"
 else
     # Extraer número del formato "Volume: 1.25"
     vol=$(echo $info | grep -oP '[0-9.]+')
-    
-    if [[ $vol == "0.00" ]]; then
-        # Barra vacía
-        BAR=$(printf ' %.0s' $(seq 1 $BAR_LENGTH))
-    elif [[ $vol == "1.00" ]]; then
-        # Barra completamente llena
-        BAR=$(printf '█%.0s' $(seq 1 $BAR_LENGTH))
-    else
-        # Calcular barra normalmente
-        vol_percent=$(printf "%.0f" $(echo "$vol*100" | bc))
-        filled=$(( (vol_percent*BAR_LENGTH + 50)/100 ))
-        empty=$(( BAR_LENGTH-filled ))
-	BAR=$(printf ' %.0s' $(seq 1 $empty))$(printf '█%.0s' $(seq 1 $filled))
-    fi
+    vol_percent=$(printf "%.0f" $(echo "$vol*100" | bc))
+    filled=$(( (vol_percent*BAR_LENGTH + 50)/100 ))
+    empty=$(( BAR_LENGTH-filled ))
+    BAR=
+    for ((i = 0; i < filled; i++)); do BAR+=█; done
+    for ((i = 0; i < empty; i++)); do BAR+=░; done
+    echo "vol:[$BAR $(printf '%3d' "$vol_percent")]"
 fi
-
-echo "vol:[$BAR]"
 echo
 echo "#ffffff"
 

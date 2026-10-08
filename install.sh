@@ -231,17 +231,16 @@ apt_install() {
 # bluez + libspa-0.2-bluetooth: bluetooth
 # ripgrep + fzf: dependencias de nvim   zoxide: cd con memoria (lo usa .bashrc)
 # trash-cli: alias rm   ffmpeg: grabar pantalla y camara
-# ncdu: uso de disco   fuse: montajes   libnotify-bin: notificaciones
+# ncdu: uso de disco   fuse: montajes
 # ncal: calendar jq: json   bc: calculos   tlp: bateria
 
-# CHECK remove dunst not required
 # CHECK rm fuse
 PACKAGES=(
-    xorg i3 i3blocks i3lock git kitty picom xournalpp dunst rofi keepass2
+    xorg i3 i3blocks i3lock git kitty picom xournalpp rofi keepass2
     libreoffice librewolf zathura nitrogen brightnessctl
     xclip network-manager unzip zip curl wget dkms build-essential pipewire
     wireplumber pipewire-pulse bluez ripgrep fzf zoxide trash-cli ffmpeg ncdu
-    fuse libnotify-bin ncal libspa-0.2-bluetooth jq bc tlp
+    fuse ncal libspa-0.2-bluetooth jq bc tlp
 )
 
 # librewolf no esta en los repos de debian, asi que se anade el repo oficial
@@ -535,7 +534,7 @@ step_dotfiles() {
 
     # nitrogen se deja fuera a proposito: sus .cfg son estado, no config
     local item
-    for item in bashrc dunst i3 i3blocks kitty mimeapps.list nvim picom rofi \
+    for item in bashrc i3 i3blocks kitty mimeapps.list nvim picom rofi \
         tmux user-dirs.dirs user-dirs.locale wp xournalpp zathura; do
         ensure_link "$REPO_DIR/config/$item" "$HOME/.config/$item"
     done

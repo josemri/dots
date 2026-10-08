@@ -55,9 +55,6 @@ exec --no-startup-id xinput disable "$(xinput list | grep "touch" | grep -o 'id=
 exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus stylus" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1
 exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" | grep -o 'id=[0-9]\+' | cut -d= -f2)" DP-1 
 
-# start notification daemon
-exec --no-startup-id dunst
-
 for_window [class="floatterm"] floating enable
 for_window [class="nmtui-term"] floating enable, resize set 600 400
 for_window [title="FFplayWindow"] floating enable, resize set 1280 720, move position center
