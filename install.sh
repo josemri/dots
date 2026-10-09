@@ -252,8 +252,7 @@ ensure_librewolf_repo() {
     if [[ ! -f $key ]]; then
         log "librewolf: descargando la clave del repositorio"
         tmp=$(tmpfile)
-        /usr/lib/apt/apt-helper download-file \
-            https://repo.librewolf.net/keyring.gpg "$tmp" >/dev/null ||
+        /usr/lib/apt/apt-helper download-file https://repo.librewolf.net/keyring.gpg "$tmp" >/dev/null ||
             die "no se pudo descargar la clave de librewolf (sin red?)"
         sudo install -D -m 644 "$tmp" "$key"
         mark
@@ -416,8 +415,7 @@ step_nvim_nightly() {
     tarball=$WORKDIR/nvim.tar.gz
 
     log "nvim: hay nightly nuevo (${current:-sin nvim} -> ${remote:0:9})"
-    curl -fsSL --connect-timeout 15 -o "$tarball" \
-        "https://github.com/neovim/neovim/releases/download/nightly/$asset.tar.gz"
+    curl -fsSL --connect-timeout 15 -o "$tarball" "https://github.com/neovim/neovim/releases/download/nightly/$asset.tar.gz"
     sudo rm -rf -- "$dir" /usr/local/bin/nvim
     sudo tar -xzf "$tarball" -C /usr/local
     sudo ln -sfn "$dir/bin/nvim" /usr/local/bin/nvim
@@ -534,8 +532,7 @@ step_dotfiles() {
 
     # nitrogen se deja fuera a proposito: sus .cfg son estado, no config
     local item
-    for item in bashrc i3 i3blocks kitty mimeapps.list nvim picom rofi \
-        tmux user-dirs.dirs user-dirs.locale wp xournalpp zathura; do
+    for item in bashrc i3 i3blocks kitty mimeapps.list nvim picom rofi user-dirs.dirs user-dirs.locale wp xournalpp zathura; do
         ensure_link "$REPO_DIR/config/$item" "$HOME/.config/$item"
     done
 }

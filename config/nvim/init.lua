@@ -43,3 +43,10 @@ local keymaps = {
 for _, k in ipairs(keymaps) do
 	vim.keymap.set(k[1], k[2], k[3])
 end
+
+-- jupyter notebook quick actions
+-- ja crear celda py
+-- jt crear celda md
+-- jd borrar celda
+-- jx ejecutar celda
+-- jX ejecutar todas las celdas
