@@ -38,8 +38,6 @@ export HISTFILESIZE=20000
 export HISTTIMEFORMAT='%F %T '
 export HISTIGNORE='ls:la:cd:pwd:exit:clear'
 shopt -s histappend
-export EDITOR=nvim
-export VISUAL=nvim
 
 eval "$(zoxide init bash)" # zoxide
 case ":$PATH:" in #opencode guard
