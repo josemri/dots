@@ -548,9 +548,55 @@ step_default_shell() {
 
 step_power_button() {
     local before=$CHANGES
+    local grub_before=$CHANGES
+    local swap_dev=""
+
+    # --- systemd-logind: tapa + boton de encendido ---
     set_conf /etc/systemd/logind.conf HandlePowerKey ignore "[Login]"
-    # reiniciar logind es disruptivo: solo si el fichero ha cambiado de verdad
-    if changed_since "$before"; then sudo systemctl restart systemd-logind; fi
+    set_conf /etc/systemd/logind.conf HandleLidSwitch suspend-then-hibernate "[Login]"
+    set_conf /etc/systemd/logind.conf HandleLidSwitchExternalPower suspend-then-hibernate "[Login]"
+    set_conf /etc/systemd/logind.conf HandleLidSwitchDocked suspend-then-hibernate "[Login]"
+
+    # --- systemd-sleep: tiempo para pasar de suspend a hibernate ---
+    ensure_file /etc/systemd/sleep.conf <<'EOF'
+[Sleep]
+HibernateDelaySec=1h
+EOF
+
+    # --- GRUB: resume para hibernar con LUKS+LVM ---
+    swap_dev=$(lsblk -no NAME,TYPE,MOUNTPOINT 2>/dev/null | awk '$3=="[SWAP]" && $2=="lvm"{print "/dev/mapper/"$1; exit}')
+    if [[ -z $swap_dev ]]; then
+        swap_dev=$(awk '$2=="partition" && $1 ~ /^dm-/{print "/dev/mapper/"$1; exit}' /proc/swaps 2>/dev/null)
+    fi
+
+    if [[ -n $swap_dev && -f /etc/default/grub ]]; then
+        local cmd cur new
+        cur=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | cut -d'"' -f2)
+        if [[ " $cur " != *" resume=$swap_dev "* ]]; then
+            if [[ -z $cur ]]; then
+                new="resume=$swap_dev"
+            else
+                new="$cur resume=$swap_dev"
+            fi
+            set_conf /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT "\"$new\""
+        fi
+    else
+        warn "no se ha podido detectar el swap LVM para configurar resume= (revisa a mano)"
+    fi
+
+    # --- Aplicar cambios ---
+    if changed_since "$grub_before"; then
+        log "grub: actualizando con resume="
+        sudo update-grub
+        if command -v update-initramfs >/dev/null; then
+            log "initramfs: regenerando para hibernar correctamente con LUKS+LVM"
+            sudo update-initramfs -u -k all
+        fi
+    fi
+
+    if changed_since "$before"; then
+        sudo systemctl restart systemd-logind
+    fi
 }
 
 step_grub() {
@@ -637,7 +683,7 @@ STEPS=(
     "tailscale:step_tailscale:tailscaled por socket y sin autoarranque"
     "dotfiles:step_dotfiles:symlinks de los dotfiles en ~"
     "shell:step_default_shell:bash como shell por defecto"
-    "logind:step_power_button:el boton de encendido no apaga"
+    "logind:step_power_button:logind + suspend-then-hibernate al bajar la tapa (LUKS+LVM + HibernateDelaySec=1h)"
     "grub:step_grub:grub sin espera (timeout 0)"
     "pen:step_asus_pen:el stylus solo en la pantalla secundaria"
     "tlp:step_tlp:tlp en vez de power-profiles-daemon"
