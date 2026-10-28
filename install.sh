@@ -550,6 +550,30 @@ step_power_button() {
     local before=$CHANGES
     local grub_before=$CHANGES
     local swap_dev=""
+    local kernel cur_lid cur_sleep cur_grub
+
+    # --- Comprobar si ya está todo correcto (idempotente) ---
+    cur_lid=$(grep -E '^HandleLidSwitch=' /etc/systemd/logind.conf 2>/dev/null | tail -1 | cut -d= -f2)
+    cur_sleep=$(grep -E '^HibernateDelaySec=' /etc/systemd/sleep.conf 2>/dev/null | tail -1 | cut -d= -f2)
+    swap_dev=$(lsblk -no NAME,TYPE,MOUNTPOINT 2>/dev/null | awk '$3=="[SWAP]" && $2=="lvm"{print "/dev/mapper/"$1; exit}')
+    if [[ -z $swap_dev ]]; then
+        swap_dev=$(awk '$2=="[SWAP]"{print $1; exit}' /proc/swaps 2>/dev/null)
+    fi
+    if [[ -z $swap_dev ]]; then
+        swap_dev=$(awk '$2=="partition" && $1 ~ /^dm-/{print "/dev/mapper/"$1; exit}' /proc/swaps 2>/dev/null)
+    fi
+    cur_grub=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | cut -d'"' -f2)
+
+    # Si resume ya está activo en el kernel actual, no tocar GRUB/initramfs
+    if grep -q 'resume=' /proc/cmdline 2>/dev/null; then
+        if [[ $cur_lid == "suspend-then-hibernate" && $cur_sleep == "1h" ]]; then
+            skip "logind/sleep: ya configurado para suspend-then-hibernate al bajar la tapa"
+            return 0
+        fi
+    elif [[ $cur_lid == "suspend-then-hibernate" && $cur_sleep == "1h" && ( -z $swap_dev || " $cur_grub " == *" resume=$swap_dev "* ) ]]; then
+        skip "logind/sleep: ya configurado para suspend-then-hibernate al bajar la tapa"
+        return 0
+    fi
 
     # --- systemd-logind: tapa + boton de encendido ---
     set_conf /etc/systemd/logind.conf HandlePowerKey ignore "[Login]"
@@ -563,39 +587,38 @@ step_power_button() {
 HibernateDelaySec=1h
 EOF
 
-    # --- GRUB: resume para hibernar con LUKS+LVM ---
-    swap_dev=$(lsblk -no NAME,TYPE,MOUNTPOINT 2>/dev/null | awk '$3=="[SWAP]" && $2=="lvm"{print "/dev/mapper/"$1; exit}')
-    if [[ -z $swap_dev ]]; then
-        swap_dev=$(awk '$2=="partition" && $1 ~ /^dm-/{print "/dev/mapper/"$1; exit}' /proc/swaps 2>/dev/null)
-    fi
-
-    if [[ -n $swap_dev && -f /etc/default/grub ]]; then
-        local cmd cur new
-        cur=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | cut -d'"' -f2)
-        if [[ " $cur " != *" resume=$swap_dev "* ]]; then
-            if [[ -z $cur ]]; then
+    # --- GRUB: resume solo si NO está ya en cmdline ---
+    if ! grep -q 'resume=' /proc/cmdline 2>/dev/null && [[ -n $swap_dev && -f /etc/default/grub ]]; then
+        local new
+        if [[ " $cur_grub " != *" resume=$swap_dev "* ]]; then
+            if [[ -z $cur_grub ]]; then
                 new="resume=$swap_dev"
             else
-                new="$cur resume=$swap_dev"
+                new="$cur_grub resume=$swap_dev"
             fi
             set_conf /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT "\"$new\""
         fi
+    elif grep -q 'resume=' /proc/cmdline 2>/dev/null; then
+        skip "grub/initramfs: resume= ya presente en cmdline, no se toca"
     else
-        warn "no se ha podido detectar el swap LVM para configurar resume= (revisa a mano)"
+        warn "no se ha podido detectar el swap para configurar resume= (revisa a mano)"
     fi
 
     # --- Aplicar cambios ---
-    if changed_since "$grub_before"; then
+    if ! grep -q 'resume=' /proc/cmdline 2>/dev/null && changed_since "$grub_before"; then
         log "grub: actualizando con resume="
-        sudo update-grub
+        sudo update-grub 2>/dev/null || true
         if command -v update-initramfs >/dev/null; then
-            log "initramfs: regenerando para hibernar correctamente con LUKS+LVM"
-            sudo update-initramfs -u -k all
+            kernel=$(uname -r)
+            log "initramfs: regenerando solo para $kernel (LUKS+LVM)"
+            sudo update-initramfs -u -k "$kernel" 2>/dev/null || true
         fi
     fi
 
+    # Recargar configuración sin reiniciar logind
     if changed_since "$before"; then
-        sudo systemctl restart systemd-logind
+        sudo systemctl daemon-reload 2>/dev/null || true
+        warn "logind/sleep actualizados. El cambio al bajar la tapa tendrá efecto con el siguiente cierre de tapa/login (sin reiniciar logind)"
     fi
 }
 
@@ -736,7 +759,11 @@ EOF
 main() {
     if ((LIST)); then list_steps; return 0; fi
     if [[ $EUID -eq 0 ]]; then die "no lo ejecutes como root, ejecuta con tu usuario"; fi
-    sudo -v || die "hace falta acceso a sudo"
+    if [[ -t 0 && -t 1 ]]; then
+        sudo -v || die "hace falta acceso a sudo"
+    else
+        sudo -n true 2>/dev/null || warn "sin acceso a sudo sin contraseña; los pasos que requieran privilegios pueden fallar o saltarse"
+    fi
 
     banner
     local step name fn _
