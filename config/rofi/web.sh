@@ -6,7 +6,8 @@ LINKS_FILE="$ROFI_DIR/web.links"
 declare -A LINKS=()
 
 usage() {
-	printf 'uso: web.sh [--add <nombre> <url> | <url, enlace o consulta>]\n' >&2
+	printf 'uso: web.sh [--add <nombre> <url> | --remove <nombre> | <url, enlace o consulta>]\n' >&2
+	printf 'en rofi: "+ <nombre> <url>" añade un enlace, "- <nombre>" lo elimina\n' >&2
 }
 
 # web.links: una entrada por linea, separada por tabuladores:
@@ -29,11 +30,9 @@ add_link() {
 	local domain iconfile icon=""
 
 	if [[ -z "$name" || -z "$url" || "$name" == \#* || "$name" == *$'\t'* || "$name" == *$'\n'* || "$url" == *$'\t'* || "$url" == *$'\n'* || "$url" == *'|'* ]]; then
-		printf 'nombre o url no válidos: no pueden contener tabuladores, saltos de línea ni | en la url, y el nombre no puede empezar por #\n' >&2
 		return 1
 	fi
 	if [[ -n "${LINKS[$name]+x}" ]]; then
-		printf 'ya existe un enlace llamado %s\n' "$name" >&2
 		return 1
 	fi
 
@@ -55,11 +54,31 @@ add_link() {
 	fi
 
 	printf '%s\t%s\t%s\n' "$name" "$url" "$icon" >> "$LINKS_FILE" || {
-		printf 'no se pudo actualizar %s\n' "$LINKS_FILE" >&2
 		return 1
 	}
 
-	printf 'añadida: %s -> %s\n' "$name" "$url"
+}
+
+remove_link() {
+	local name="$1"
+	local icon=""
+
+	if [[ -z "$name" || -z "${LINKS[$name]+x}" ]]; then
+		return 1
+	fi
+
+	icon=$(awk -F'\t' -v n="$name" '$1 == n { print $3; exit }' "$LINKS_FILE")
+	awk -F'\t' -v n="$name" '$1 != n' "$LINKS_FILE" > "$LINKS_FILE.tmp" && cat "$LINKS_FILE.tmp" > "$LINKS_FILE"
+	rm -f -- "$LINKS_FILE.tmp"
+
+	if [[ -n "$icon" ]] && ! awk -F'\t' -v i="$icon" '$3 == i { found = 1 } END { exit !found }' "$LINKS_FILE"; then
+		rm -f -- "$ROFI_DIR/icons/$icon"
+	fi
+}
+
+notify() {
+	command -v notify-send >/dev/null && notify-send "web" "$1"
+	printf '%s\n' "$1"
 }
 
 is_url() {
@@ -89,6 +108,15 @@ if [[ "${1-}" == --add ]]; then
 	exit $?
 fi
 
+if [[ "${1-}" == --remove ]]; then
+	if [[ $# -ne 2 ]]; then
+		usage
+		exit 1
+	fi
+	remove_link "$2"
+	exit $?
+fi
+
 if [[ $# -eq 0 ]]; then
 	for key in "${!LINKS[@]}"; do
 		IFS='|' read -r url icon <<< "${LINKS[$key]}"
@@ -111,6 +139,19 @@ choice=${choice#"${choice%%[![:space:]]*}"}
 choice=${choice%"${choice##*[![:space:]]}"}
 
 [[ -n "$choice" ]] || exit 0
+
+case "$choice" in
+	+\ *)
+		read -r name url <<< "${choice#+ }"
+		notify "$(add_link "$name" "$url" 2>&1)"
+		exit 0
+		;;
+	-\ *)
+		read -r name _ <<< "${choice#- }"
+		notify "$(remove_link "$name" 2>&1)"
+		exit 0
+		;;
+esac
 
 entry=""
 for key in "${!LINKS[@]}"; do
