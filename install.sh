@@ -655,10 +655,10 @@ EOF
     # --- NVIDIA: conservar la VRAM al hibernar ---
     ensure_file /etc/modprobe.d/nvidia-hibernate.conf <<'EOF'
 # suspend-then-hibernate con NVIDIA: conservar la VRAM en disco al hibernar.
-# Debian carga el modulo como nvidia-current (nombre interno: nvidia).
-# /tmp es tmpfs, asi que el volcado va a /var/tmp (persistente).
-options nvidia-current NVreg_PreserveVideoMemoryAllocations=1
-options nvidia-current NVreg_TemporaryFilePath=/var/tmp
+# Desactivado para aislar el cuelgue al suspender (se cuelga tras el sync,
+# antes de congelar procesos). Reactivar cuando se resuelva.
+# options nvidia-current NVreg_PreserveVideoMemoryAllocations=1
+# options nvidia-current NVreg_TemporaryFilePath=/var/tmp
 EOF
 
     # El hook del paquete solo atiende "post" (resume). Anadimos el "pre" para
