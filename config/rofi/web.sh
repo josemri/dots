@@ -14,7 +14,6 @@ declare -A LINKS=(
 	["telegram"]="https://web.telegram.org/a/|icons/telegram.ico"
 	["outlook"]="https://outlook.office.com|icons/outlook.office.com.ico"
 	["matlab"]="https://matlab.mathworks.com/|icons/matlab.mathworks.com.ico"
-	["colab"]="https://colab.research.google.com/?authuser=1|icons/colab.research.google.com.ico"
 )
 
 usage() {

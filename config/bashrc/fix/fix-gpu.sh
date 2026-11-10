@@ -16,6 +16,7 @@ set -e
 
 GRUB=/etc/default/grub
 MOD=/etc/modprobe.d/nvidia.conf
+NVHIB=/etc/modprobe.d/nvidia-hibernate.conf
 PERSIST=/etc/systemd/system/nvidia-persistenced.service.d/10-fix-gpu.conf
 UDRULE=/etc/udev/rules.d/99-gpu-mx250.rules
 PERSUD=/etc/udev/rules.d/91-nvidia-persistenced.rules
@@ -23,7 +24,7 @@ PERSUD=/etc/udev/rules.d/91-nvidia-persistenced.rules
 rollback() {
     echo "== Rollback fix GPU =="
     [ -f "$GRUB.bak-gpu-fix" ] && { cp -a "$GRUB.bak-gpu-fix" "$GRUB"; rm -f "$GRUB.bak-gpu-fix"; update-grub 2>/dev/null || true; echo "   GRUB restaurado"; }
-    rm -f "$MOD" "$UDRULE" "$PERSUD" "$PERSIST"
+    rm -f "$MOD" "$NVHIB" "$UDRULE" "$PERSUD" "$PERSIST"
     rmdir /etc/systemd/system/nvidia-persistenced.service.d 2>/dev/null || true
     systemctl daemon-reload 2>/dev/null || true
     update-initramfs -u 2>/dev/null || true
@@ -59,6 +60,17 @@ blacklist nouveau
 options nvidia-current-drm modeset=1
 EOF
 echo "   modprobe: nouveau fuera, KMS nvidia activo"
+
+# 2b) hibernacion: conservar la VRAM al suspender/hibernar. /tmp es tmpfs,
+#     asi que el volcado de la VRAM va a /var/tmp (persistente).
+cat > "$NVHIB" << 'EOF'
+# suspend-then-hibernate con NVIDIA: conservar la VRAM en disco al hibernar.
+# Debian carga el modulo como nvidia-current (nombre interno: nvidia).
+# /tmp es tmpfs, asi que el volcado va a /var/tmp (persistente).
+options nvidia-current NVreg_PreserveVideoMemoryAllocations=1
+options nvidia-current NVreg_TemporaryFilePath=/var/tmp
+EOF
+echo "   modprobe: preservar VRAM al hibernar (nvidia-hibernate.conf)"
 
 # 3) ELIMINAR nvidia de modules-load.d (carga bajo demanda, no al boot)
 rm -f /etc/modules-load.d/nvidia.conf 2>/dev/null || true

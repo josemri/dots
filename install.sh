@@ -548,77 +548,171 @@ step_default_shell() {
 
 step_power_button() {
     local before=$CHANGES
-    local grub_before=$CHANGES
-    local swap_dev=""
-    local kernel cur_lid cur_sleep cur_grub
+    local resume_mark grub_mark
+    local swap_dev="" swap_uuid="" lid_action=suspend-then-hibernate
+    local name type mnt uuid dev kernel resume_value=""
+    local cur_grub new_grub unit resume_changed=0 initrd
 
-    # --- Comprobar si ya está todo correcto (idempotente) ---
-    cur_lid=$(grep -E '^HandleLidSwitch=' /etc/systemd/logind.conf 2>/dev/null | tail -1 | cut -d= -f2)
-    cur_sleep=$(grep -E '^HibernateDelaySec=' /etc/systemd/sleep.conf 2>/dev/null | tail -1 | cut -d= -f2)
-    swap_dev=$(lsblk -no NAME,TYPE,MOUNTPOINT 2>/dev/null | awk '$3=="[SWAP]" && $2=="lvm"{print "/dev/mapper/"$1; exit}')
-    if [[ -z $swap_dev ]]; then
-        swap_dev=$(awk '$2=="[SWAP]"{print $1; exit}' /proc/swaps 2>/dev/null)
-    fi
-    if [[ -z $swap_dev ]]; then
-        swap_dev=$(awk '$2=="partition" && $1 ~ /^dm-/{print "/dev/mapper/"$1; exit}' /proc/swaps 2>/dev/null)
-    fi
-    cur_grub=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | cut -d'"' -f2)
+    # --- localizar el swap: lsblk -l no dibuja el arbol (nada de "└─") ---
+    while read -r name type mnt uuid; do
+        [[ $mnt == "[SWAP]" ]] || continue
+        case $type in
+            lvm|crypt) swap_dev="/dev/mapper/$name" ;;
+            *) swap_dev="/dev/$name" ;;
+        esac
+        swap_uuid=$uuid
+        break
+    done < <(lsblk -lno NAME,TYPE,MOUNTPOINT,UUID 2>/dev/null)
 
-    # Si resume ya está activo en el kernel actual, no tocar GRUB/initramfs
-    if grep -q 'resume=' /proc/cmdline 2>/dev/null; then
-        if [[ $cur_lid == "suspend-then-hibernate" && $cur_sleep == "1h" ]]; then
-            skip "logind/sleep: ya configurado para suspend-then-hibernate al bajar la tapa"
-            return 0
+    # fallback: /proc/swaps suele dar /dev/dm-N; lo resolvemos a su nombre real
+    if [[ -z $swap_dev ]]; then
+        dev=$(awk '$2=="partition" {print $1; exit}' /proc/swaps 2>/dev/null)
+        if [[ -n $dev && -b $dev ]]; then
+            read -r name type uuid < <(lsblk -lno NAME,TYPE,UUID "$dev" 2>/dev/null) || true
+            case $type in
+                lvm|crypt) swap_dev="/dev/mapper/$name" ;;
+                *) swap_dev=$dev ;;
+            esac
+            swap_uuid=$uuid
         fi
-    elif [[ $cur_lid == "suspend-then-hibernate" && $cur_sleep == "1h" && ( -z $swap_dev || " $cur_grub " == *" resume=$swap_dev "* ) ]]; then
-        skip "logind/sleep: ya configurado para suspend-then-hibernate al bajar la tapa"
-        return 0
+    fi
+
+    # sin swap no se puede hibernar: mejor suspender que colgarse intentandolo
+    if [[ -z $swap_dev ]]; then
+        lid_action=suspend
+        warn "no se ha podido detectar el swap; la tapa solo suspendera (sin hibernar)"
     fi
 
     # --- systemd-logind: tapa + boton de encendido ---
     set_conf /etc/systemd/logind.conf HandlePowerKey ignore "[Login]"
-    set_conf /etc/systemd/logind.conf HandleLidSwitch suspend-then-hibernate "[Login]"
-    set_conf /etc/systemd/logind.conf HandleLidSwitchExternalPower suspend-then-hibernate "[Login]"
-    set_conf /etc/systemd/logind.conf HandleLidSwitchDocked suspend-then-hibernate "[Login]"
+    set_conf /etc/systemd/logind.conf HandleLidSwitch "$lid_action" "[Login]"
+    set_conf /etc/systemd/logind.conf HandleLidSwitchExternalPower "$lid_action" "[Login]"
+    set_conf /etc/systemd/logind.conf HandleLidSwitchDocked "$lid_action" "[Login]"
 
-    # --- systemd-sleep: tiempo para pasar de suspend a hibernate ---
-    ensure_file /etc/systemd/sleep.conf <<'EOF'
+    # --- systemd-sleep: drop-in, sin tocar el sleep.conf del paquete ---
+    ensure_file /etc/systemd/sleep.conf.d/10-hibernate.conf <<'EOF'
 [Sleep]
 HibernateDelaySec=1h
 EOF
 
-    # --- GRUB: resume solo si NO está ya en cmdline ---
-    if ! grep -q 'resume=' /proc/cmdline 2>/dev/null && [[ -n $swap_dev && -f /etc/default/grub ]]; then
-        local new
-        if [[ " $cur_grub " != *" resume=$swap_dev "* ]]; then
-            if [[ -z $cur_grub ]]; then
-                new="resume=$swap_dev"
-            else
-                new="$cur_grub resume=$swap_dev"
+    # --- initramfs: el hook de resume necesita el UUID del swap ---
+    # Solo se regenera si cambia el fichero: asi no se pisa el override ACPI
+    # que fix-acpi.sh concatena al initrd.
+    resume_mark=$CHANGES
+    if [[ -n $swap_uuid ]]; then
+        resume_value="UUID=$swap_uuid"
+    elif [[ -n $swap_dev ]]; then
+        resume_value=$swap_dev
+    fi
+    if [[ -n $resume_value ]]; then
+        ensure_file /etc/initramfs-tools/conf.d/resume <<EOF
+RESUME=$resume_value
+EOF
+    fi
+    if changed_since "$resume_mark"; then resume_changed=1; fi
+
+    # --- GRUB: dejar un unico resume= valido, aunque haya uno malo de antes ---
+    grub_mark=$CHANGES
+    if [[ -n $swap_dev && -f /etc/default/grub ]]; then
+        cur_grub=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null | tail -1 | cut -d'"' -f2 || true)
+        # quita cualquier resume= (incluido /dev/mapper/└─...) y anade el bueno
+        new_grub=$(printf '%s\n' "$cur_grub" |
+            sed -E 's/(^|[[:space:]])resume=[^[:space:]]*/\1/g; s/[[:space:]]+/ /g; s/^ //; s/ $//')
+        new_grub="${new_grub:+$new_grub }resume=$swap_dev"
+        if [[ $new_grub != "$cur_grub" ]]; then
+            set_conf /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT "\"$new_grub\""
+        fi
+    fi
+
+    # --- aplicar GRUB/initramfs solo si ha cambiado algo ---
+    if changed_since "$grub_mark"; then
+        log "grub: actualizando cmdline (resume=$swap_dev)"
+        sudo update-grub 2>/dev/null || warn "update-grub fallo; ejecutalo a mano"
+    fi
+    if ((resume_changed)); then
+        kernel=$(uname -r)
+        initrd=/boot/initrd.img-$kernel
+        log "initramfs: regenerando para $kernel (LUKS+LVM)"
+        sudo update-initramfs -u -k "$kernel" 2>/dev/null || warn "update-initramfs fallo; ejecutalo a mano"
+        # update-initramfs parte de cero y pierde el override ACPI que
+        # fix-acpi.sh concatena al initrd; si estaba, lo volvemos a poner.
+        if [[ -f /boot/fix-acpi-override.cpio && -f $initrd ]] &&
+            command -v lsinitramfs >/dev/null; then
+            local list
+            list=$(tmpfile)
+            if lsinitramfs "$initrd" >"$list" 2>/dev/null &&
+                ! grep -q 'kernel/firmware/acpi/fix-acpi-ssdt.aml' "$list"; then
+                local tmp
+                tmp=$(tmpfile)
+                cat /boot/fix-acpi-override.cpio "$initrd" >"$tmp"
+                sudo cp "$tmp" "$initrd"
+                mark
+                ok "initramfs: override ACPI re-inyectado"
             fi
-            set_conf /etc/default/grub GRUB_CMDLINE_LINUX_DEFAULT "\"$new\""
-        fi
-    elif grep -q 'resume=' /proc/cmdline 2>/dev/null; then
-        skip "grub/initramfs: resume= ya presente en cmdline, no se toca"
-    else
-        warn "no se ha podido detectar el swap para configurar resume= (revisa a mano)"
-    fi
-
-    # --- Aplicar cambios ---
-    if ! grep -q 'resume=' /proc/cmdline 2>/dev/null && changed_since "$grub_before"; then
-        log "grub: actualizando con resume="
-        sudo update-grub 2>/dev/null || true
-        if command -v update-initramfs >/dev/null; then
-            kernel=$(uname -r)
-            log "initramfs: regenerando solo para $kernel (LUKS+LVM)"
-            sudo update-initramfs -u -k "$kernel" 2>/dev/null || true
         fi
     fi
 
-    # Recargar configuración sin reiniciar logind
+    # --- NVIDIA: conservar la VRAM al hibernar ---
+    ensure_file /etc/modprobe.d/nvidia-hibernate.conf <<'EOF'
+# suspend-then-hibernate con NVIDIA: conservar la VRAM en disco al hibernar.
+# Debian carga el modulo como nvidia-current (nombre interno: nvidia).
+# /tmp es tmpfs, asi que el volcado va a /var/tmp (persistente).
+options nvidia-current NVreg_PreserveVideoMemoryAllocations=1
+options nvidia-current NVreg_TemporaryFilePath=/var/tmp
+EOF
+
+    # El hook del paquete solo atiende "post" (resume). Anadimos el "pre" para
+    # que suspend-then-hibernate tambien avise al driver antes de hibernar.
+    ensure_file /usr/lib/systemd/system-sleep/50-nvidia-hibernate 755 <<'EOF'
+#!/bin/sh
+# NVIDIA + suspend-then-hibernate.
+# /usr/lib/systemd/system-sleep/nvidia solo hace "post" (resume). Sin este
+# "pre", la fase de hibernacion no se anuncia al driver y al reanudar desde
+# disco la GPU queda en un estado inconsistente.
+[ -x /usr/bin/nvidia-sleep.sh ] || exit 0
+
+case "${1:-}" in
+    pre)
+        case "${SYSTEMD_SLEEP_ACTION:-}" in
+            suspend|hybrid-sleep)
+                /usr/bin/nvidia-sleep.sh suspend || true
+                ;;
+            hibernate)
+                # deja que el driver termine de reanudar antes de hibernar
+                /bin/sleep 1
+                /usr/bin/nvidia-sleep.sh hibernate || true
+                ;;
+            suspend-after-failed-hibernate)
+                /usr/bin/nvidia-sleep.sh suspend || true
+                ;;
+        esac
+        ;;
+    post)
+        # el hook del paquete ya hace "resume"; solo actuamos si no esta
+        [ -x /usr/lib/systemd/system-sleep/nvidia ] ||
+            /usr/bin/nvidia-sleep.sh resume || true
+        ;;
+esac
+exit 0
+EOF
+
+    # nvidia-*.service solo se enganchan a suspend/hibernate "normales"; en
+    # suspend-then-hibernate no se ejecutan. El hook pre/post ya lo cubre, y
+    # dejarlos activos haria doble llamada en un suspend manual.
+    for unit in nvidia-suspend.service nvidia-hibernate.service nvidia-resume.service; do
+        if systemctl is-enabled --quiet "$unit" 2>/dev/null; then
+            sudo systemctl disable "$unit" >/dev/null 2>&1 || true
+            mark
+            ok "$unit: deshabilitado (lo cubre el hook de system-sleep)"
+        fi
+    done
+
+    # Recargar configuracion sin reiniciar logind
     if changed_since "$before"; then
         sudo systemctl daemon-reload 2>/dev/null || true
-        warn "logind/sleep actualizados. El cambio al bajar la tapa tendrá efecto con el siguiente cierre de tapa/login (sin reiniciar logind)"
+        warn "logind/sleep/nvidia actualizados. Reinicia para aplicar resume= y los parametros de NVIDIA."
+    else
+        skip "logind/sleep/nvidia: ya configurado ($lid_action, resume=${swap_dev:-no detectado})"
     fi
 }
 
