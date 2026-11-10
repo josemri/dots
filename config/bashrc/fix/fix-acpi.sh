@@ -25,7 +25,8 @@ DefinitionBlock ("", "SSDT", 2, "OEM", "DPTF_FIX", 0x00000001)
     Name (PIDE, Zero)  Name (ATPC, Zero)  Name (PTPC, Zero)
 }
 DSL
-iasl -p "$TMP/fix" "$TMP/fix.dsl" >/dev/null 2>&1
+iasl -p "$TMP/fix" "$TMP/fix.dsl" >/dev/null 2>&1 ||
+    { echo "ERROR: iasl no pudo compilar el override"; exit 1; }
 install -m 644 "$TMP/fix.aml" "$AML"
 echo "   Override: $AML"
 
@@ -39,8 +40,13 @@ echo "   Initrd actualizado"
 
 if ! grep -q "acpi_osi=Linux" /etc/default/grub 2>/dev/null; then
     cp /etc/default/grub /etc/default/grub.bak-acpi-fix
-    sed -i 's/GRUB_CMDLINE_LINUX="\(.*\)"/GRUB_CMDLINE_LINUX="\1 acpi_osi=Linux"/' /etc/default/grub
-    command -v update-grub >/dev/null 2>&1 && update-grub >/dev/null
+    if grep -q '^GRUB_CMDLINE_LINUX=' /etc/default/grub; then
+        sed -i 's/^GRUB_CMDLINE_LINUX="\(.*\)"/GRUB_CMDLINE_LINUX="\1 acpi_osi=Linux"/' /etc/default/grub
+    else
+        echo 'GRUB_CMDLINE_LINUX="acpi_osi=Linux"' >> /etc/default/grub
+    fi
+    grep -q "acpi_osi=Linux" /etc/default/grub || { echo "ERROR: no se pudo editar /etc/default/grub"; exit 1; }
+    update-grub || echo "   AVISO: update-grub fallo; ejecutalo a mano"
     echo "   GRUB: anadido acpi_osi=Linux"
 else
     echo "   GRUB: acpi_osi=Linux ya presente"

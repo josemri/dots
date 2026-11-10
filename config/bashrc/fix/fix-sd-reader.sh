@@ -91,12 +91,16 @@ if grep -q "$MARK_PCR" "$BUILD/rtsx_pcr.c"; then
     echo "   rtsx_pcr.c ya parcheado"
 else
     perl -0pi -e 's{if \(pcr->rtd3_en\)\n(\t+)pm_schedule_suspend\(device, 10000\);}{if (pcr->rtd3_en \&\&\n$1    !CHK_PCI_PID(pcr, 0x522A) \&\& PCI_PID(pcr) != PID_525A)\n$1\tpm_schedule_suspend(device, 10000);}g' "$BUILD/rtsx_pcr.c"
+    grep -q "$MARK_PCR" "$BUILD/rtsx_pcr.c" ||
+        { echo "ERROR: el parche RTD3 no encaja en rtsx_pcr.c (cambio el fuente upstream?)"; exit 1; }
     echo "   Parche RTD3 aplicado (rtsx_pcr.c)"
 fi
 if grep -q 'mdelay(5);' "$BUILD/rtsx_pci_sdmmc.c"; then
     echo "   rtsx_pci_sdmmc.c ya parcheado"
 else
     perl -0pi -e 's{(rtsx_pci_card_power_on\(pcr, RTSX_SD_CARD\);\n\tif \(err < 0\)\n\t\treturn err;\n\n\t)mdelay\(1\);}{$1mdelay(5);}s' "$BUILD/rtsx_pci_sdmmc.c"
+    grep -q 'mdelay(5);' "$BUILD/rtsx_pci_sdmmc.c" ||
+        { echo "ERROR: el parche de settling no encaja en rtsx_pci_sdmmc.c (cambio el fuente upstream?)"; exit 1; }
     echo "   Parche settling 5ms aplicado (rtsx_pci_sdmmc.c)"
 fi
 
@@ -120,7 +124,7 @@ if grep -q "pcie_aspm=off" /etc/default/grub 2>/dev/null; then
 else
     cp -a /etc/default/grub /etc/default/grub.bak-sd-fix
     sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 pcie_aspm=off"/' /etc/default/grub
-    command -v update-grub >/dev/null 2>&1 && update-grub >/dev/null 2>&1
+    update-grub || echo "   AVISO: update-grub fallo; ejecutalo a mano"
     echo "   GRUB: anadido pcie_aspm=off"
 fi
 

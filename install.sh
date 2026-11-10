@@ -68,7 +68,7 @@ uso: install [opciones]
   -f, --force           re-aplica nvim, dkms y los fixes aunque ya esten hechos
   -o, --only <pasos>    solo esos pasos, separados por coma (prefijo: nvim,dkms)
   -l, --list            muestra todos los pasos que se pueden ejecutar con --only
-  -h, --help        esto
+  -h, --help            esto
 EOF
 }
 
@@ -100,15 +100,32 @@ ensure_file() {
 
 # ensure_link <origen> <destino>
 #   (re)crea el symlink solo si no apunta ya al origen. si el origen no existe
-#   avisa en vez de dejar un symlink roto.
+#   avisa en vez de dejar un symlink roto. lo que hubiera en <destino> (fichero
+#   o directorio real) se aparta a <destino>.bak-<fecha>, nunca se borra.
 ensure_link() {
     local src=$1 dst=$2
     if [[ ! -e $src ]]; then warn "$src no existe: no se enlaza $dst"; return 0; fi
     if [[ -L $dst && $(readlink -- "$dst") == "$src" ]]; then return 0; fi
-    if [[ -e $dst || -L $dst ]]; then sudo rm -rf -- "$dst"; fi
+    mkdir -p -- "$(dirname -- "$dst")"
+    if [[ -e $dst || -L $dst ]]; then
+        mv -- "$dst" "$dst.bak-$(date +%Y%m%d-%H%M%S)"
+        warn "$dst existia: movido a $dst.bak-*"
+    fi
     ln -s -- "$src" "$dst"
     mark
     ok "$dst -> $src"
+}
+
+# install_to <modo> <origen> <destino>: sin sudo si el destino (o su
+# directorio, si aun no existe) es escribible por el usuario; si no, con sudo.
+# asi los ficheros de ~ no acaban con dueno root.
+install_to() {
+    local mode=$1 src=$2 dst=$3
+    if [[ -w $dst ]] || { [[ ! -e $dst ]] && [[ -w $(dirname -- "$dst") ]]; }; then
+        install -m "$mode" "$src" "$dst"
+    else
+        sudo install -m "$mode" "$src" "$dst"
+    fi
 }
 
 # set_conf <fichero> <clave> <valor> [cabecera_de_seccion]
@@ -145,7 +162,7 @@ set_conf() {
         }
     ' "$file" >"$new"
     if sudo cmp -s "$new" "$file"; then return 0; fi
-    sudo install -m 644 "$new" "$file"
+    install_to 644 "$new" "$file"
     mark
     ok "$(basename "$file"): $key=$value"
 }
@@ -326,7 +343,7 @@ HIDE_MENU_ENTRIES=(
     xdg-desktop-portal-gtk.desktop
     xfreerdp3.desktop
     xfreerdp3-file.desktop
-	 nitrogen.desktop
+    nitrogen.desktop
 )
 
 # oculta un .desktop con Hidden=true, que es justo lo que hace la opcion "no
@@ -351,7 +368,7 @@ hide_desktop() {
 # center se deja visible porque es el lanzador que si se usa; lo que no este
 # instalado se salta y se sigue con el resto.
 #
-# OJO: estos ficheros son de /usr/share y los Dueene el paquete, asi que un
+# OJO: estos ficheros son de /usr/share y pertenecen al paquete, asi que un
 # upgrade (o un --reinstall) los revierte y este paso hay que re-ejecutarlo.
 step_hide_desktop() {
     local dirs dir file name rc note
@@ -399,7 +416,7 @@ step_nvim_nightly() {
         die "no se pudo consultar el nightly de neovim (sin red?)"
 
     if command -v nvim >/dev/null; then
-        current=$(nvim --version | head -1 | sed 's/.*+g//')
+        current=$(nvim --version | sed -n '1s/.*+g//p')
     fi
     if [[ ${current:0:7} == "${remote:0:7}" ]]; then
         skip "nvim nightly al dia (${current:0:9})"
@@ -416,8 +433,12 @@ step_nvim_nightly() {
 
     log "nvim: hay nightly nuevo (${current:-sin nvim} -> ${remote:0:9})"
     curl -fsSL --connect-timeout 15 -o "$tarball" "https://github.com/neovim/neovim/releases/download/nightly/$asset.tar.gz"
+    # se descomprime antes de tocar /usr/local: si tar falla, nvim sigue ahi
+    local extract=$WORKDIR/nvim-extract
+    mkdir -p "$extract"
+    tar -xzf "$tarball" -C "$extract"
     sudo rm -rf -- "$dir" /usr/local/bin/nvim
-    sudo tar -xzf "$tarball" -C /usr/local
+    sudo mv -- "$extract/$asset" "$dir"
     sudo ln -sfn "$dir/bin/nvim" /usr/local/bin/nvim
     mark
 }
@@ -627,13 +648,13 @@ EOF
     # --- aplicar GRUB/initramfs solo si ha cambiado algo ---
     if changed_since "$grub_mark"; then
         log "grub: actualizando cmdline (resume=$swap_dev)"
-        sudo update-grub 2>/dev/null || warn "update-grub fallo; ejecutalo a mano"
+        sudo update-grub || warn "update-grub fallo; ejecutalo a mano"
     fi
     if ((resume_changed)); then
         kernel=$(uname -r)
         initrd=/boot/initrd.img-$kernel
         log "initramfs: regenerando para $kernel (LUKS+LVM)"
-        sudo update-initramfs -u -k "$kernel" 2>/dev/null || warn "update-initramfs fallo; ejecutalo a mano"
+        sudo update-initramfs -u -k "$kernel" || warn "update-initramfs fallo; ejecutalo a mano"
         # update-initramfs parte de cero y pierde el override ACPI que
         # fix-acpi.sh concatena al initrd; si estaba, lo volvemos a poner.
         if [[ -f /boot/fix-acpi-override.cpio && -f $initrd ]] &&
@@ -663,7 +684,14 @@ EOF
 
     # El hook del paquete solo atiende "post" (resume). Anadimos el "pre" para
     # que suspend-then-hibernate tambien avise al driver antes de hibernar.
-    ensure_file /usr/lib/systemd/system-sleep/50-nvidia-hibernate 755 <<'EOF'
+    # En /etc (no en /usr, que es de los paquetes) y sin dejar la copia vieja:
+    # si quedaran las dos, el hook se ejecutaria dos veces.
+    if [[ -e /usr/lib/systemd/system-sleep/50-nvidia-hibernate ]]; then
+        sudo rm -f -- /usr/lib/systemd/system-sleep/50-nvidia-hibernate
+        mark
+        ok "eliminado /usr/lib/systemd/system-sleep/50-nvidia-hibernate (movido a /etc)"
+    fi
+    ensure_file /etc/systemd/system-sleep/50-nvidia-hibernate 755 <<'EOF'
 #!/bin/sh
 # NVIDIA + suspend-then-hibernate.
 # /usr/lib/systemd/system-sleep/nvidia solo hace "post" (resume). Sin este
@@ -765,8 +793,9 @@ hardware_fixes_present() {
 }
 
 # fixes de hardware: tocan initrd, grub y modulos del kernel, asi que se
-# saltan mientras sus efectos sigan en su sitio (si editas los scripts, o con
-# --force, se vuelven a aplicar).
+# saltan mientras sus efectos sigan en su sitio. solo se comprueba que existan
+# los ficheros que deja cada fix: si cambias un script, usa --force (p.ej.
+# ./install.sh -f -o hardware-fixes) para volver a aplicarlo.
 step_hardware_fixes() {
     if ((WITH_HARDWARE == 0)); then skip "fixes de hardware (--no-hardware)"; return 0; fi
     local dir=$REPO_DIR/config/bashrc/fix kernel

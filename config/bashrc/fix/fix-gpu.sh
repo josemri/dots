@@ -48,7 +48,7 @@ else
         echo 'GRUB_CMDLINE_LINUX_DEFAULT="pcie_port_pm=off"' >> "$GRUB"
     fi
     grep -q "pcie_port_pm=off" "$GRUB" || { echo "ERROR: no se pudo editar $GRUB"; exit 1; }
-    update-grub 2>/dev/null || true
+    update-grub || echo "   AVISO: update-grub fallo; ejecutalo a mano"
     echo "   GRUB: pcie_port_pm=off anadido"
 fi
 
