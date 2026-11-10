@@ -25,16 +25,16 @@ cd ~/dots
 ## things
 
 - install.sh installs the packages, symlinks the dotfiles, compiles asus-wmi-screenpad dkms module, writes the xorg conf for the pen, enables network/bluetooth/pipewire/tlp, and applies the hardware fixes (acpi, sd reader, gpu).
-- hardware fixes: acpi, sd card reader, gpu on demand. (config/bashrc/fix/)
+- hardware fixes: acpi, sd card reader, gpu on demand. (config/bashrc/fix/; reinject-acpi.sh restores the acpi override after any initrd rebuild)
 - touchpad and secondary screen toggles. (config/bashrc/toggleMouse.sh & config/bashrc/toggleScreen.sh)
 - brightness and power management adjustments. (config/i3/config)
 - asus pen button mapping. (config/i3/config)
 - custom workspace and window management tailored for dual screens. (config/bashrc/workspace.sh, config/bashrc/mvapp.sh & config/i3/config)
 - nvim
 - xournalpp
-- luks unlock splashscreen. (config/bashrc/splashscreen.sh)
+- luks unlock splashscreen: assets in config/cryptsetup/, installed by config/bashrc/splashscreen.sh (also run by install.sh, only regenerates the initrd when something changed).
 - bash (custom git prompt, aliases, functions, zoxide)
-- rofi (drun config, web shortcuts, audio sink switcher, external screen control menu, powermenu and recording menu with ffmpeg)
+- rofi (drun config, web shortcuts from config/rofi/web.links, audio sink switcher, external screen control menu, powermenu and recording menu with ffmpeg)
 - i3 + i3blocks (weird keymapping because of the dual screen and extra buttons)
 - picom
 - kitty
@@ -80,7 +80,7 @@ exec --no-startup-id xinput map-to-output "$(xinput list | grep "Stylus eraser" 
 bindsym XF86AudioMute exec --no-startup-id "wpctl set-mute @DEFAULT_SINK@ toggle"
 bindsym XF86AudioLowerVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%-"
 bindsym XF86AudioRaiseVolume exec --no-startup-id "wpctl set-volume @DEFAULT_SINK@ 5%+ -l 1.0"
-bindsym Shift+XF86AudioMute exec --no-startup-id ./.config/rofi/audio.sh
+bindsym Shift+XF86AudioMute exec --no-startup-id ~/.config/rofi/audio.sh
 
 # brightness maps
 bindsym XF86MonBrightnessUp exec --no-startup-id brightnessctl s +10%
@@ -88,15 +88,15 @@ bindsym XF86MonBrightnessDown exec --no-startup-id brightnessctl s 10%-
 bindsym Shift+XF86MonBrightnessUp exec --no-startup-id brightnessctl -d asus::screenpad s +10%
 bindsym Shift+XF86MonBrightnessDown exec --no-startup-id brightnessctl -d asus::screenpad s 10%-
 
-bindsym XF86TouchpadToggle exec --no-startup-id ./.config/bashrc/toggleMouse.sh
-bindsym $mod+p exec --no-startup-id ./.config/rofi/externalScreen.sh
+bindsym XF86TouchpadToggle exec --no-startup-id ~/.config/bashrc/toggleMouse.sh
+bindsym $mod+p exec --no-startup-id ~/.config/rofi/externalScreen.sh
 bindsym $mod+l exec --no-startup-id "i3lock -c 000000 --no-unlock-indicator --ignore-empty-password -n" # lock screen
 bindsym $mod+Shift+s exec --no-startup-id ffmpeg -nostdin -loglevel quiet -f x11grab -draw_mouse 0 -select_region 1 -i :0.0 -frames:v 1 -c:v png -f image2pipe - | xclip -i -selection clipboard -t image/png
-bindsym XF86Launch1 exec --no-startup-id ./.config/rofi/rec.sh
+bindsym XF86Launch1 exec --no-startup-id ~/.config/rofi/rec.sh
 bindsym Print exec --no-startup-id ffmpeg -nostdin -loglevel quiet -f x11grab -draw_mouse 0 -i :0.0 -frames:v 1 -c:v png -f image2pipe - | xclip -i -selection clipboard -t image/png
-bindsym XF86Launch6 exec --no-startup-id ./.config/bashrc/mvapp.sh
-bindsym XF86Launch7 exec --no-startup-id ./.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
-bindsym XF86PowerOff  exec --no-startup-id ./.config/rofi/powermenu.sh 
+bindsym XF86Launch6 exec --no-startup-id ~/.config/bashrc/mvapp.sh
+bindsym XF86Launch7 exec --no-startup-id ~/.config/bashrc/toggleScreen.sh # toggle eDP-1 on/off
+bindsym XF86PowerOff  exec --no-startup-id ~/.config/rofi/powermenu.sh 
 ```
 
 apart from that everything else is pretty standard i3 setup.

@@ -45,4 +45,4 @@ case ":$PATH:" in #opencode guard
 	*) export PATH="$HOME/.opencode/bin:$PATH" ;;
 esac
 
-. "$HOME/.local/bin/env"
+[[ -f $HOME/.local/bin/env ]] && . "$HOME/.local/bin/env"

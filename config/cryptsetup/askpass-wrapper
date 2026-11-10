@@ -1,0 +1,17 @@
+#!/bin/sh
+printf '\033[2J\033[H' >/dev/console 2>/dev/null
+
+# Lanzar animación en un nuevo grupo de procesos
+setsid /etc/luks-anim/animate.sh >/dev/console 2>/dev/null &
+ANIM_PID=$!
+
+/lib/cryptsetup/askpass "$(printf '\n\n\n\n\n\n\n\n\n\n  contraseña: ')"
+
+# Matar el grupo de procesos del animate
+kill -TERM -$ANIM_PID 2>/dev/null
+sleep 0.1
+kill -KILL -$ANIM_PID 2>/dev/null
+
+# Por si acaso, matar cualquier proceso hijo que quede
+pkill -KILL -P $ANIM_PID 2>/dev/null
+pkill -f animate.sh 2>/dev/null

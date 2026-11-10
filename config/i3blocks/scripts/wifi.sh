@@ -1,20 +1,17 @@
 #!/bin/bash
 
 case $BLOCK_BUTTON in
-  1) i3-msg exec "kitty --class nmtui-term -e nmtui" ;; #right
-  3) i3-msg exec "nmcli device wifi rescan" ;; #left
+  1) i3-msg exec "kitty --class nmtui-term -e nmtui" ;; # clic izquierdo
+  3) i3-msg exec "nmcli device wifi rescan" ;; # clic derecho
 esac
 
+# conexion activa del primer dispositivo wifi (no fijado a un nombre de interfaz)
+connection=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device | awk -F: '$2=="wifi" && $3=="connected" {print $4; exit}')
 
-
-# Obtener conexión activa en wlo1
-connection_info=$(nmcli -t -f name,device connection show --active | grep wlo1)
-
-if [ "$connection_info" ]; then
-    ssid=$(echo "$connection_info" | cut -d: -f1)
-    echo "net:[$ssid]"
+if [ -n "$connection" ]; then
+    echo "net:[$connection]"
 else
-	echo "net:[off]"
+    echo "net:[off]"
 fi
 
 echo

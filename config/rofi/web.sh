@@ -1,54 +1,45 @@
 #!/usr/bin/env bash
 
 ROFI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT="$ROFI_DIR/web.sh"
-WEB_PREFIX=":'web"$'\t'
+LINKS_FILE="$ROFI_DIR/web.links"
 
-declare -A LINKS=(
-	["claude"]="https://claude.ai/new|icons/claude.ico"
-	["whatsapp"]="https://web.whatsapp.com|icons/whatsapp.ico"
-	["chatgpt"]="https://chat.openai.com|icons/chatgpt.ico"
-	["campus"]="https://campusvirtual.uclm.es|icons/campusvirtual.ico"
-	["github"]="https://github.com|icons/github.ico"
-	["youtube"]="https://youtube.com|icons/youtube.ico"
-	["telegram"]="https://web.telegram.org/a/|icons/telegram.ico"
-	["outlook"]="https://outlook.office.com|icons/outlook.office.com.ico"
-	["matlab"]="https://matlab.mathworks.com/|icons/matlab.mathworks.com.ico"
-)
+declare -A LINKS=()
 
 usage() {
 	printf 'uso: web.sh [--add <nombre> <url> | <url, enlace o consulta>]\n' >&2
 }
 
+# web.links: una entrada por linea, separada por tabuladores:
+#   nombre <TAB> url <TAB> icono (fichero en icons/, puede estar vacio)
 load_links() {
-	local line name url icon value
+	local name url icon value
 
-	while IFS= read -r line; do
-		[[ "$line" == "$WEB_PREFIX"*\' ]] || continue
-		line=${line#"$WEB_PREFIX"}
-		line=${line%\'}
-		IFS=$'\t' read -r name url icon <<< "$line"
-		[[ -n "$name" && -n "$url" ]] || continue
+	[[ -f $LINKS_FILE ]] || return 0
+	while IFS=$'\t' read -r name url icon || [[ -n $name ]]; do
+		[[ -n "$name" && -n "$url" && "$name" != \#* ]] || continue
 		value="$url"
 		[[ -n "$icon" ]] && value="$value|icons/$icon"
 		LINKS["$name"]="$value"
-	done < "$SCRIPT"
+	done < "$LINKS_FILE"
 }
 
 add_link() {
 	local name="$1"
 	local url="$2"
-	local domain iconfile icon entry
+	local domain iconfile icon=""
 
-	if [[ -z "$name" || -z "$url" || "$name" == *"'"* || "$name" == *$'\t'* || "$name" == *$'\n'* || "$name" == *$'\r'* || "$url" == *"'"* || "$url" == *$'\t'* || "$url" == *$'\n'* || "$url" == *$'\r'* || "$url" == *'|'* ]]; then
-		printf 'nombre o url no válidos: no pueden contener comillas simples, tabuladores, saltos de línea ni | en la url\n' >&2
+	if [[ -z "$name" || -z "$url" || "$name" == \#* || "$name" == *$'\t'* || "$name" == *$'\n'* || "$url" == *$'\t'* || "$url" == *$'\n'* || "$url" == *'|'* ]]; then
+		printf 'nombre o url no válidos: no pueden contener tabuladores, saltos de línea ni | en la url, y el nombre no puede empezar por #\n' >&2
+		return 1
+	fi
+	if [[ -n "${LINKS[$name]+x}" ]]; then
+		printf 'ya existe un enlace llamado %s\n' "$name" >&2
 		return 1
 	fi
 
 	[[ "$url" =~ ^https?:// ]] || url="https://$url"
 	domain=$(printf '%s' "$url" | sed -E 's|https?://([^/?#]+).*|\1|')
 	iconfile=$(printf '%s' "$domain" | tr -cd '[:alnum:].-')
-	icon=""
 
 	if [[ -d "$ROFI_DIR/icons" && -x /usr/bin/curl ]]; then
 		if curl -fsSL --max-time 10 "https://icons.duckduckgo.com/ip3/$domain.ico" -o "$ROFI_DIR/icons/$iconfile.ico"; then
@@ -63,14 +54,8 @@ add_link() {
 		fi
 	fi
 
-	[[ -n "$icon" ]] && icon="icons/$icon"
-	entry=$(printf ":'web\t%s\t%s\t%s'" "$name" "$url" "$icon")
-	bash -n -c "$entry" || {
-		printf 'no se pudo generar una entrada válida\n' >&2
-		return 1
-	}
-	printf '%s\n' "$entry" >> "$SCRIPT" || {
-		printf 'no se pudo actualizar %s\n' "$SCRIPT" >&2
+	printf '%s\t%s\t%s\n' "$name" "$url" "$icon" >> "$LINKS_FILE" || {
+		printf 'no se pudo actualizar %s\n' "$LINKS_FILE" >&2
 		return 1
 	}
 

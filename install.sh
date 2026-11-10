@@ -246,7 +246,8 @@ apt_install() {
 # dkms + build-essential: headers/kernel para compilar modulos
 # pipewire + wireplumber + pipewire-pulse: audio
 # bluez + libspa-0.2-bluetooth: bluetooth
-# ripgrep + fzf: dependencias de nvim   zoxide: cd con memoria (lo usa .bashrc)
+# ripgrep + fzf: dependencias de nvim   fd-find: alias find (config/bashrc/alias)
+# zoxide: cd con memoria (lo usa .bashrc)
 # trash-cli: alias rm   ffmpeg: grabar pantalla y camara
 # ncdu: uso de disco   fuse: montajes
 # ncal: calendar jq: json   bc: calculos   tlp: bateria
@@ -256,7 +257,7 @@ PACKAGES=(
     xorg i3 i3blocks i3lock git kitty picom xournalpp rofi keepass2
     libreoffice librewolf zathura nitrogen brightnessctl
     xclip network-manager unzip zip curl wget dkms build-essential pipewire
-    wireplumber pipewire-pulse bluez ripgrep fzf zoxide trash-cli ffmpeg ncdu
+    wireplumber pipewire-pulse bluez ripgrep fd-find fzf zoxide trash-cli ffmpeg ncdu
     fuse ncal libspa-0.2-bluetooth jq bc tlp
 )
 
@@ -572,7 +573,7 @@ step_power_button() {
     local resume_mark grub_mark
     local swap_dev="" swap_uuid="" lid_action=suspend-then-hibernate
     local name type mnt uuid dev kernel resume_value=""
-    local cur_grub new_grub unit resume_changed=0 initrd
+    local cur_grub new_grub unit resume_changed=0
 
     # --- localizar el swap: lsblk -l no dibuja el arbol (nada de "└─") ---
     while read -r name type mnt uuid; do
@@ -652,25 +653,11 @@ EOF
     fi
     if ((resume_changed)); then
         kernel=$(uname -r)
-        initrd=/boot/initrd.img-$kernel
         log "initramfs: regenerando para $kernel (LUKS+LVM)"
         sudo update-initramfs -u -k "$kernel" || warn "update-initramfs fallo; ejecutalo a mano"
-        # update-initramfs parte de cero y pierde el override ACPI que
-        # fix-acpi.sh concatena al initrd; si estaba, lo volvemos a poner.
-        if [[ -f /boot/fix-acpi-override.cpio && -f $initrd ]] &&
-            command -v lsinitramfs >/dev/null; then
-            local list
-            list=$(tmpfile)
-            if lsinitramfs "$initrd" >"$list" 2>/dev/null &&
-                ! grep -q 'kernel/firmware/acpi/fix-acpi-ssdt.aml' "$list"; then
-                local tmp
-                tmp=$(tmpfile)
-                cat /boot/fix-acpi-override.cpio "$initrd" >"$tmp"
-                sudo cp "$tmp" "$initrd"
-                mark
-                ok "initramfs: override ACPI re-inyectado"
-            fi
-        fi
+        # update-initramfs parte de cero y pierde el override ACPI de fix-acpi.sh
+        sudo bash "$REPO_DIR/config/bashrc/fix/reinject-acpi.sh"
+        mark
     fi
 
     # --- NVIDIA: conservar la VRAM al hibernar ---
@@ -814,6 +801,19 @@ step_hardware_fixes() {
     mark
 }
 
+# splash de desbloqueo LUKS (cubo 3D + Tux). splashscreen.sh solo regenera el
+# initrd si algo ha cambiado; aqui solo se marca cambio si lo ha regenerado.
+step_splashscreen() {
+    if [[ ! -f /usr/lib/cryptsetup/functions ]]; then
+        skip "splash LUKS: cryptsetup-initramfs no instalado"
+        return 0
+    fi
+    local out
+    out=$(sudo bash "$REPO_DIR/config/bashrc/splashscreen.sh")
+    printf '%s\n' "$out"
+    if grep -q 'regenerando initramfs' <<<"$out"; then mark; fi
+}
+
 # -------------------------------------------------------------------- main ---
 # STEPS: nombre:funcion:descripcion. el nombre es lo que vale en --only (se
 # compara por prefijo) y lo que muestra --list. la descripcion no puede llevar
@@ -834,6 +834,7 @@ STEPS=(
     "pen:step_asus_pen:el stylus solo en la pantalla secundaria"
     "tlp:step_tlp:tlp en vez de power-profiles-daemon"
     "hardware-fixes:step_hardware_fixes:fixes de hardware (acpi, sd reader, gpu)"
+    "splash:step_splashscreen:splash de desbloqueo LUKS (cubo 3D + tux), solo si cambia"
     "hide-desktop:step_hide_desktop:oculta lanzadores del menu (libreoffice, kitty, rofi...)"
 )
 

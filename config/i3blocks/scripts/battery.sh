@@ -1,7 +1,9 @@
 #!/bin/bash
 
-BAT_PATH="/sys/class/power_supply/BAT0"
-PERCENT=$(cat $BAT_PATH/capacity)
+BAT_PATH=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+[ -n "$BAT_PATH" ] || exit 0
+
+PERCENT=$(cat "$BAT_PATH/capacity")
 STATUS=$(cat $BAT_PATH/status 2>/dev/null)
 BAR_LENGTH=10
 

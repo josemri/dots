@@ -26,9 +26,9 @@ log() {
 # ==============================
 run_cmd() {
     if $VERBOSE; then
-        "$@"
+        "$@" || { echo "   AVISO: fallo: $*" >&2; return 1; }
     else
-        "$@" >/dev/null 2>&1
+        "$@" >/dev/null 2>&1 || { echo "   AVISO: fallo: $*" >&2; return 1; }
     fi
 }
 
@@ -45,30 +45,37 @@ log " sys_cleanup"
 log "=============================="
 
 log "[1/12] Updating package lists..."
-run_cmd apt update -y
+run_cmd apt-get -y -qq update
 
 log "[2/12] Removing orphaned dependencies..."
-run_cmd apt autoremove -y
+run_cmd apt-get -y -qq autoremove
 
 log "[3/12] Cleaning downloaded packages..."
-run_cmd apt autoclean -y
-run_cmd apt clean -y
+run_cmd apt-get -y -qq autoclean
+run_cmd apt-get -y -qq clean
 
 log "[4/12] Removing residual configuration files..."
-run_cmd dpkg -l | awk '/^rc/ {print $2}' | xargs -r apt purge -y
+mapfile -t RC_PKGS < <(dpkg -l | awk '/^rc/ {print $2}')
+if [ "${#RC_PKGS[@]}" -gt 0 ]; then run_cmd apt-get -y purge "${RC_PKGS[@]}" || true; fi
 
 log "[5/12] Removing OLD kernels (keeping current + newest fallback)..."
-# Nunca borramos el kernel en uso ni el de respaldo más reciente:
-#   /lib/modules/<versión> = única fuente de verdad de kernels presentes.
-# Se conservan los 2 más recientes (actual + fallback) y los demás se purgan
-# junto con sus headers EXACTOS (nada de borrar headers de kernels vivos).
+# Nunca se borra el kernel en uso: se protege siempre el que esta arrancado
+# (uname -r) y se completan hasta KEEP_KERNELS con los mas recientes. Los demas
+# se purgan junto con sus headers EXACTOS (nada de borrar headers de kernels vivos).
 KEEP_KERNELS="${KEEP_KERNELS:-2}"
+RUNNING=$(uname -r)
 mapfile -t KERS < <(for d in /lib/modules/[0-9]*; do echo "${d#/lib/modules/}"; done | sort -Vr)
-if [ "${#KERS[@]}" -le "$KEEP_KERNELS" ]; then
-    echo "   solo hay ${#KERS[@]} kernel(s) instalado(s): nada que purgar (actual=${KERS[0]})"
+KEEP=("$RUNNING")
+for v in "${KERS[@]}"; do
+    ((${#KEEP[@]} < KEEP_KERNELS)) || break
+    [[ " ${KEEP[*]} " == *" $v "* ]] || KEEP+=("$v")
+done
+if [ "${#KERS[@]}" -le "${#KEEP[@]}" ]; then
+    echo "   solo hay ${#KERS[@]} kernel(s) instalado(s): nada que purgar (actual=$RUNNING)"
 else
     to_purge=()
-    for v in "${KERS[@]:$KEEP_KERNELS}"; do
+    for v in "${KERS[@]}"; do
+        [[ " ${KEEP[*]} " == *" $v "* ]] && continue
         # headers si existen (mismo uso exacto de esa version)
         for h in "linux-headers-${v%-*}-common" "linux-headers-${v%-*}-common-rt" "linux-headers-$v"; do
             dpkg-query -W -f='${binary:Package}\n' "$h" >/dev/null 2>&1 && to_purge+=("$h")
@@ -76,15 +83,16 @@ else
         to_purge+=("linux-image-$v")
     done
     if [ "${#to_purge[@]}" -gt 0 ]; then
-        echo "   protegiendo:      ${KERS[*]:0:$KEEP_KERNELS}"
+        echo "   protegiendo:      ${KEEP[*]}"
         echo "   purgando ${#to_purge[@]} paquete(s) viejos..."
-        run_cmd apt purge -y "${to_purge[@]}" || true
+        run_cmd apt-get -y purge "${to_purge[@]}" || true
     fi
 fi
 
 log "[6/12] Removing extra orphaned packages..."
 if command -v deborphan &>/dev/null; then
-    run_cmd deborphan | xargs -r apt purge -y
+    mapfile -t ORPHANS < <(deborphan)
+    if [ "${#ORPHANS[@]}" -gt 0 ]; then run_cmd apt-get -y purge "${ORPHANS[@]}" || true; fi
 fi
 
 log "[7/12] Cleaning journal logs (keeping 200MB)..."

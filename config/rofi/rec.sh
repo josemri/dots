@@ -36,20 +36,6 @@ toggle_pause() {
     fi
 }
 
-# deprecated use toggle instead
-pause_recording() {
-    pid=$(get_pid)
-    [[ -z "$pid" ]] && return
-    kill -SIGSTOP "$pid"
-}
-
-# deprecated use toggle instead
-resume_recording() {
-    pid=$(get_pid)
-    [[ -z "$pid" ]] && return
-    kill -SIGCONT "$pid"
-}
-
 stop_recording() {
     pid=$(get_pid)
     [[ -z "$pid" ]] && return
@@ -65,18 +51,6 @@ stop_recording() {
     rm -f "$PIDFILE"
 }
 
-
-#deprecated usea stop_recording instead
-stop_recording_old() {
-    pid=$(get_pid)
-    [[ -z "$pid" ]] && return
-    kill -SIGINT "$pid" 2>/dev/null
-    sleep 1
-    kill -0 "$pid" 2>/dev/null && kill -TERM "$pid"
-    sleep 1
-    kill -0 "$pid" 2>/dev/null && kill -KILL "$pid"
-    rm -f "$PIDFILE"
-}
 
 cleanup_if_dead() {
     pid=$(get_pid)

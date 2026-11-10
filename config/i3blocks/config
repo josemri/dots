@@ -1,6 +1,6 @@
 markup=pango
 
-[Bluetoot]
+[Bluetooth]
 command=~/.config/i3blocks/scripts/bluetooth.sh
 interval=5
 
