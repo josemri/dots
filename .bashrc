@@ -46,3 +46,5 @@ case ":$PATH:" in #opencode guard
 esac
 
 [[ -f $HOME/.local/bin/env ]] && . "$HOME/.local/bin/env"
+
+export PATH="$HOME/.local/MATLAB/R2026b/bin:$PATH"
